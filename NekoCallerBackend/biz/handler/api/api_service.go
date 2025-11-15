@@ -449,13 +449,18 @@ func RollCall(ctx context.Context, c *app.RequestContext) {
 	s := service.NewAPIService(ctx)
 	currentRoster, err := s.RollCall(&req)
 	if err != nil {
-		resp = nil
+		resp.BaseResponse = &common.BaseResponse{
+			Code:    constants.CodeFailed,
+			Message: err.Error(),
+		}
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
 	}
 
-	resp.BaseResponse.Code = constants.CodeSuccess
-	resp.BaseResponse.Message = "点名成功"
+	resp.BaseResponse = &common.BaseResponse{
+		Code:    constants.CodeSuccess,
+		Message: "点名成功",
+	}
 	resp.RosterItem = &currentRoster
 
 	c.JSON(consts.StatusOK, resp)
