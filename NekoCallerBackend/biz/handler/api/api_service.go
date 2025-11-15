@@ -7,6 +7,9 @@ import (
 
 	api "FZUSENekoCaller/biz/model/api"
 	common "FZUSENekoCaller/biz/model/common"
+	"FZUSENekoCaller/biz/service"
+	"FZUSENekoCaller/pkg/constants"
+
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
@@ -23,6 +26,17 @@ func ImportClassData(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(common.BaseResponse)
+
+	s := service.NewImportService(ctx)
+    if err := s.ImportClassData(&req); err != nil {
+        resp.Code = constants.CodeFailed
+        resp.Message = err.Error()
+        c.JSON(consts.StatusInternalServerError, resp)
+        return
+    }
+
+	resp.Code = constants.CodeSuccess
+    resp.Message = "课表导入成功"
 
 	c.JSON(consts.StatusOK, resp)
 }
@@ -49,6 +63,15 @@ func ListClasses(ctx context.Context, c *app.RequestContext) {
 	var err error
 
 	resp := new([]*common.Class)
+
+	s:= service.NewAPIService(ctx)
+	classes, err := s.ListClasses()
+	if err != nil {
+		resp = nil
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp = &classes
 
 	c.JSON(consts.StatusOK, resp)
 }
@@ -91,6 +114,15 @@ func ListAllStudents(ctx context.Context, c *app.RequestContext) {
 	var err error
 
 	resp := new([]*common.Student)
+
+	s:= service.NewAPIService(ctx)
+	students, err := s.ListAllStudents()
+	if err != nil {
+		resp = nil
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp = &students
 
 	c.JSON(consts.StatusOK, resp)
 }
