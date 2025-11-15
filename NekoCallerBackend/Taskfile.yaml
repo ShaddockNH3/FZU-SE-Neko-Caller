@@ -1,0 +1,16 @@
+version: "3"
+
+tasks:
+  tidy:
+    cmds:
+      - go env -w GOPRIVATE=github.com/apache/thrift
+      - go mod tidy
+    dir: ./
+  lint:
+    cmds:
+      - golangci-lint run ./...
+    dir: ./
+  test:
+    cmds:
+      - go test ./...
+    dir: ./

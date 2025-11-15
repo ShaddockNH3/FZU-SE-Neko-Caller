@@ -6,6 +6,7 @@ import (
 	"FZUSENekoCaller/biz/model/common"
 	"context"
 	"fmt"
+
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
@@ -660,10 +661,11 @@ func (p *RollCallResponse) String() string {
 
 // 分数变动请求
 type SolveRollCallRequest struct {
-	EnrollmentID string                 `thrift:"enrollment_id,1" form:"enrollment_id" json:"enrollment_id" query:"enrollment_id"`
-	AnswerType   common.AnswerType      `thrift:"answer_type,2" form:"answer_type" json:"answer_type" query:"answer_type"`
-	CustomScore  *float64               `thrift:"custom_score,3,optional" form:"custom_score" json:"custom_score,omitempty" query:"custom_score"`
-	EventType    common.RandomEventType `thrift:"event_type,4,optional" form:"event_type" json:"event_type,omitempty" query:"event_type"`
+	EnrollmentID       string                 `thrift:"enrollment_id,1" form:"enrollment_id" json:"enrollment_id" query:"enrollment_id"`
+	AnswerType         common.AnswerType      `thrift:"answer_type,2" form:"answer_type" json:"answer_type" query:"answer_type"`
+	CustomScore        *float64               `thrift:"custom_score,3,optional" form:"custom_score" json:"custom_score,omitempty" query:"custom_score"`
+	EventType          common.RandomEventType `thrift:"event_type,4,optional" form:"event_type" json:"event_type,omitempty" query:"event_type"`
+	TargetEnrollmentID *string                `thrift:"target_enrollment_id,5,optional" form:"target_enrollment_id" json:"target_enrollment_id,omitempty" query:"target_enrollment_id"`
 }
 
 func NewSolveRollCallRequest() *SolveRollCallRequest {
@@ -703,11 +705,21 @@ func (p *SolveRollCallRequest) GetEventType() (v common.RandomEventType) {
 	return p.EventType
 }
 
+var SolveRollCallRequest_TargetEnrollmentID_DEFAULT string
+
+func (p *SolveRollCallRequest) GetTargetEnrollmentID() (v string) {
+	if !p.IsSetTargetEnrollmentID() {
+		return SolveRollCallRequest_TargetEnrollmentID_DEFAULT
+	}
+	return *p.TargetEnrollmentID
+}
+
 var fieldIDToName_SolveRollCallRequest = map[int16]string{
 	1: "enrollment_id",
 	2: "answer_type",
 	3: "custom_score",
 	4: "event_type",
+	5: "target_enrollment_id",
 }
 
 func (p *SolveRollCallRequest) IsSetCustomScore() bool {
@@ -716,6 +728,10 @@ func (p *SolveRollCallRequest) IsSetCustomScore() bool {
 
 func (p *SolveRollCallRequest) IsSetEventType() bool {
 	return p.EventType != SolveRollCallRequest_EventType_DEFAULT
+}
+
+func (p *SolveRollCallRequest) IsSetTargetEnrollmentID() bool {
+	return p.TargetEnrollmentID != nil
 }
 
 func (p *SolveRollCallRequest) Read(iprot thrift.TProtocol) (err error) {
@@ -763,6 +779,14 @@ func (p *SolveRollCallRequest) Read(iprot thrift.TProtocol) (err error) {
 		case 4:
 			if fieldTypeId == thrift.I32 {
 				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 5:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField5(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -842,6 +866,18 @@ func (p *SolveRollCallRequest) ReadField4(iprot thrift.TProtocol) error {
 	return nil
 }
 
+func (p *SolveRollCallRequest) ReadField5(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.TargetEnrollmentID = _field
+	return nil
+}
+
 func (p *SolveRollCallRequest) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
 	if err = oprot.WriteStructBegin("SolveRollCallRequest"); err != nil {
@@ -862,6 +898,10 @@ func (p *SolveRollCallRequest) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField4(oprot); err != nil {
 			fieldId = 4
+			goto WriteFieldError
+		}
+		if err = p.writeField5(oprot); err != nil {
+			fieldId = 5
 			goto WriteFieldError
 		}
 	}
@@ -949,6 +989,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
+}
+
+func (p *SolveRollCallRequest) writeField5(oprot thrift.TProtocol) (err error) {
+	if p.IsSetTargetEnrollmentID() {
+		if err = oprot.WriteFieldBegin("target_enrollment_id", thrift.STRING, 5); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.TargetEnrollmentID); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
 }
 
 func (p *SolveRollCallRequest) String() string {

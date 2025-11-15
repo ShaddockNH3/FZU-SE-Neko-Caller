@@ -4,6 +4,8 @@ package api
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	api "FZUSENekoCaller/biz/model/api"
 	common "FZUSENekoCaller/biz/model/common"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+	"github.com/xuri/excelize/v2"
 )
 
 // ImportClassData .
@@ -41,21 +44,145 @@ func ImportClassData(ctx context.Context, c *app.RequestContext) {
 	c.JSON(consts.StatusOK, resp)
 }
 
+// ImportClassDataFromExcel .
+// @router /v1/import/excel [POST]
+func ImportClassDataFromExcel(ctx context.Context, c *app.RequestContext) {
+	resp := new(common.BaseResponse)
+
+	// 获取上传的文件
+	file, err := c.FormFile("file")
+	if err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = "获取上传文件失败: " + err.Error()
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+
+	// 获取班级名称
+	className := c.PostForm("class_name")
+	if className == "" {
+		resp.Code = constants.CodeFailed
+		resp.Message = "班级名称不能为空"
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+
+	// 打开Excel文件
+	src, err := file.Open()
+	if err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = "打开文件失败: " + err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	defer src.Close()
+
+	// 读取Excel
+	f, err := excelize.OpenReader(src)
+	if err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = "解析Excel文件失败: " + err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	defer f.Close()
+
+	// 获取第一个工作表
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		resp.Code = constants.CodeFailed
+		resp.Message = "Excel文件中没有工作表"
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+
+	// 读取所有行
+	rows, err := f.GetRows(sheets[0])
+	if err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = "读取Excel数据失败: " + err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	if len(rows) <= 1 {
+		resp.Code = constants.CodeFailed
+		resp.Message = "Excel文件中没有学生数据"
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+
+	// 解析学生数据 (跳过标题行)
+	// 预期列: 学号 | 姓名 | 专业
+	students := make([]*common.Student, 0)
+	for i, row := range rows {
+		if i == 0 {
+			// 跳过标题行
+			continue
+		}
+		if len(row) < 2 {
+			continue
+		}
+
+		studentID := row[0]
+		name := row[1]
+		var major *string
+		if len(row) >= 3 && row[2] != "" {
+			major = &row[2]
+		}
+
+		if studentID == "" || name == "" {
+			continue
+		}
+
+		students = append(students, &common.Student{
+			StudentID: studentID,
+			Name:      name,
+			Major:     major,
+		})
+	}
+
+	if len(students) == 0 {
+		resp.Code = constants.CodeFailed
+		resp.Message = "未找到有效的学生数据"
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+
+	// 构造导入请求
+	importReq := &api.ImportDataRequest{
+		ClassName: className,
+		Students:  students,
+	}
+
+	// 调用服务层
+	s := service.NewImportService(ctx)
+	if err := s.ImportClassData(importReq); err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	resp.Code = constants.CodeSuccess
+	resp.Message = fmt.Sprintf("成功导入班级 %s，共 %d 名学生", className, len(students))
+
+	c.JSON(consts.StatusOK, resp)
+}
+
 // GetClass .
 // @router /v1/classes/:class_id [GET]
 func GetClass(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req string
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	classID := c.Param("class_id")
+	if classID == "" {
+		c.String(consts.StatusBadRequest, "class_id is required")
 		return
 	}
 
 	resp := new(common.Class)
 
 	s := service.NewAPIService(ctx)
-	class, err := s.GetClass(req)
+	class, err := s.GetClass(classID)
 	if err != nil {
 		resp = nil
 		c.JSON(consts.StatusInternalServerError, resp)
@@ -88,34 +215,122 @@ func ListClasses(ctx context.Context, c *app.RequestContext) {
 // DeleteClass .
 // @router /v1/classes/:class_id [DELETE]
 func DeleteClass(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req string
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	classID := c.Param("class_id")
+	if classID == "" {
+		c.String(consts.StatusBadRequest, "class_id is required")
 		return
 	}
 
 	resp := new(common.BaseResponse)
 
+	s := service.NewAPIService(ctx)
+	if err := s.DeleteClass(classID); err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	resp.Code = constants.CodeSuccess
+	resp.Message = "删除班级成功"
+
 	c.JSON(consts.StatusOK, resp)
 }
 
-// GetStudent .
-// @router /v-1/students/:student_id [GET]
-func GetStudent(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req string
-	err = c.BindAndValidate(&req)
+// ExportClassRoster .
+// @router /v1/classes/:class_id/export [GET]
+func ExportClassRoster(ctx context.Context, c *app.RequestContext) {
+	resp := new(common.BaseResponse)
+
+	classID := c.Param("class_id")
+	if classID == "" {
+		resp.Code = constants.CodeFailed
+		resp.Message = "班级ID不能为空"
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+
+	// 获取班级信息
+	s := service.NewAPIService(ctx)
+	class, err := s.GetClass(classID)
 	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+		resp.Code = constants.CodeFailed
+		resp.Message = "班级不存在: " + err.Error()
+		c.JSON(consts.StatusNotFound, resp)
+		return
+	}
+
+	// 获取花名册
+	roster, err := s.GetClassRoster(classID)
+	if err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = "获取花名册失败: " + err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	// 创建Excel文件
+	f := excelize.NewFile()
+	sheetName := "Sheet1"
+	f.SetSheetName(f.GetSheetName(0), sheetName)
+
+	// 写入标题行
+	headers := []string{"学号", "姓名", "专业", "随机点名次数", "总积分"}
+	for i, header := range headers {
+		cell := fmt.Sprintf("%s1", string(rune('A'+i)))
+		f.SetCellValue(sheetName, cell, header)
+	}
+
+	// 写入数据
+	for i, item := range roster {
+		row := i + 2
+		f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), item.StudentInfo.StudentID)
+		f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), item.StudentInfo.Name)
+		if item.StudentInfo.Major != nil {
+			f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), *item.StudentInfo.Major)
+		} else {
+			f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), "")
+		}
+		f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), item.EnrollmentInfo.CallCount)
+		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), item.EnrollmentInfo.TotalPoints)
+	}
+
+	// 设置列宽
+	f.SetColWidth(sheetName, "A", "A", 15)
+	f.SetColWidth(sheetName, "B", "B", 15)
+	f.SetColWidth(sheetName, "C", "C", 20)
+	f.SetColWidth(sheetName, "D", "D", 15)
+	f.SetColWidth(sheetName, "E", "E", 15)
+
+	// 生成文件
+	buffer, err := f.WriteToBuffer()
+	if err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = "生成Excel文件失败: " + err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	// 设置响应头
+	filename := fmt.Sprintf("%s-积分详单.xlsx", class.ClassName)
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", filename))
+	c.Data(consts.StatusOK, "application/octet-stream", buffer.Bytes())
+}
+
+// GetStudent .
+// @router /v1/students/:student_id [GET]
+func GetStudent(ctx context.Context, c *app.RequestContext) {
+	studentID := c.Param("student_id")
+	if studentID == "" {
+		c.String(consts.StatusBadRequest, "student_id is required")
 		return
 	}
 
 	resp := new(common.Student)
 
 	s := service.NewAPIService(ctx)
-	student, err := s.GetStudent(req)
+	student, err := s.GetStudent(studentID)
 	if err != nil {
 		resp = nil
 		c.JSON(consts.StatusInternalServerError, resp)
@@ -148,15 +363,24 @@ func ListAllStudents(ctx context.Context, c *app.RequestContext) {
 // DeleteStudent .
 // @router /v1/students/:student_id [DELETE]
 func DeleteStudent(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req string
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	studentID := c.Param("student_id")
+	if studentID == "" {
+		c.String(consts.StatusBadRequest, "student_id is required")
 		return
 	}
 
 	resp := new(common.BaseResponse)
+
+	s := service.NewAPIService(ctx)
+	if err := s.DeleteStudent(studentID); err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	resp.Code = constants.CodeSuccess
+	resp.Message = "删除学生成功"
 
 	c.JSON(consts.StatusOK, resp)
 }
@@ -164,18 +388,16 @@ func DeleteStudent(ctx context.Context, c *app.RequestContext) {
 // GetClassRoster .
 // @router /v1/roster [GET]
 func GetClassRoster(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req string
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	classID := c.Query("class_id")
+	if classID == "" {
+		c.String(consts.StatusBadRequest, "class_id is required")
 		return
 	}
 
 	resp := new([]*common.RosterItem)
 
 	s := service.NewAPIService(ctx)
-	roster, err := s.GetClassRoster(req)
+	roster, err := s.GetClassRoster(classID)
 	if err != nil {
 		resp = nil
 		c.JSON(consts.StatusInternalServerError, resp)
@@ -189,15 +411,24 @@ func GetClassRoster(ctx context.Context, c *app.RequestContext) {
 // RemoveStudentFromClass .
 // @router /v1/enrollments/:enrollment_id [DELETE]
 func RemoveStudentFromClass(ctx context.Context, c *app.RequestContext) {
-	var err error
-	var req string
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+	enrollmentID := c.Param("enrollment_id")
+	if enrollmentID == "" {
+		c.String(consts.StatusBadRequest, "enrollment_id is required")
 		return
 	}
 
 	resp := new(common.BaseResponse)
+
+	s := service.NewAPIService(ctx)
+	if err := s.RemoveStudentFromClass(enrollmentID); err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	resp.Code = constants.CodeSuccess
+	resp.Message = "移除学生成功"
 
 	c.JSON(consts.StatusOK, resp)
 }
@@ -230,6 +461,65 @@ func RollCall(ctx context.Context, c *app.RequestContext) {
 	c.JSON(consts.StatusOK, resp)
 }
 
+// GetLeaderboard .
+// @router /v1/classes/:class_id/leaderboard [GET]
+func GetLeaderboard(ctx context.Context, c *app.RequestContext) {
+	resp := new(common.BaseResponse)
+
+	classID := c.Param("class_id")
+	if classID == "" {
+		resp.Code = constants.CodeFailed
+		resp.Message = "班级ID不能为空"
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+
+	// 获取top参数，默认10
+	topStr := c.Query("top")
+	top := 10
+	if topStr != "" {
+		if t, err := strconv.Atoi(topStr); err == nil && t > 0 {
+			top = t
+		}
+	}
+
+	s := service.NewAPIService(ctx)
+	leaderboard, err := s.GetLeaderboard(classID, top)
+	if err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = "获取排行榜失败: " + err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	c.JSON(consts.StatusOK, leaderboard)
+}
+
+// GetClassStats .
+// @router /v1/classes/:class_id/stats [GET]
+func GetClassStats(ctx context.Context, c *app.RequestContext) {
+	resp := new(common.BaseResponse)
+
+	classID := c.Param("class_id")
+	if classID == "" {
+		resp.Code = constants.CodeFailed
+		resp.Message = "班级ID不能为空"
+		c.JSON(consts.StatusBadRequest, resp)
+		return
+	}
+
+	s := service.NewAPIService(ctx)
+	stats, err := s.GetClassStats(classID)
+	if err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = "获取统计信息失败: " + err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	c.JSON(consts.StatusOK, stats)
+}
+
 // SolveRollCall .
 // @router /v1/roll-calls/solve [POST]
 func SolveRollCall(ctx context.Context, c *app.RequestContext) {
@@ -242,6 +532,17 @@ func SolveRollCall(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(common.BaseResponse)
+
+	s := service.NewAPIService(ctx)
+	if err := s.SolveRollCall(&req); err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	resp.Code = constants.CodeSuccess
+	resp.Message = "结算成功"
 
 	c.JSON(consts.StatusOK, resp)
 }

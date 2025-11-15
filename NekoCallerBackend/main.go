@@ -3,12 +3,21 @@
 package main
 
 import (
+	"log"
+
+	"FZUSENekoCaller/biz/dal/mysql"
+	"FZUSENekoCaller/biz/router"
+
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
 func main() {
+	if mysql.Init() == nil {
+		log.Fatal("mysql initialization failed")
+	}
+
 	h := server.Default()
 
-	register(h)
+	router.GeneratedRegister(h)
 	h.Spin()
 }

@@ -19,6 +19,7 @@ const (
 	QueryStudentIDsErrCode // 查询学生ID失败
 
 	StudentNotFoundErrCode // 学生未找到
+	TransferRightsErrCode  // 转移权不足
 )
 
 // ========================== Error Messages ==========================
@@ -60,15 +61,16 @@ var (
 	ParamErr   = NewErrNo(ParamErrCode, ParamErrMsg)
 
 	// Class related errors
-	CreateClassErr = NewErrNo(CreateClassErrCode, "Create class failed")
+	CreateClassErr          = NewErrNo(CreateClassErrCode, "Create class failed")
 	CreateClassOrStudentErr = NewErrNo(CreateClassOrStudentErrCode, "Create class or student failed")
-	StudentJoinClassErr = NewErrNo(StudentJoinClassErrCode, "Student join class failed")
+	StudentJoinClassErr     = NewErrNo(StudentJoinClassErrCode, "Student join class failed")
 
 	// Enrollment related errors
 	QueryStudentIDsErr = NewErrNo(QueryStudentIDsErrCode, "Query student IDs failed")
 
 	// Roll call related errors
-	StudentNotFoundErr = NewErrNo(StudentNotFoundErrCode, "Student not found")
+	StudentNotFoundErr      = NewErrNo(StudentNotFoundErrCode, "Student not found")
+	TransferRightsNotEnough = NewErrNo(TransferRightsErrCode, "Transfer rights not enough")
 )
 
 func ConvertErr(err error) ErrNo {

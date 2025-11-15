@@ -27,6 +27,7 @@ struct SolveRollCallRequest{
     2: common.AnswerType answer_type,
     3: optional double custom_score,
     4: optional common.RandomEventType event_type = common.RandomEventType.NONE,
+    5: optional string target_enrollment_id,
 }
 
 service ApiService {
@@ -39,7 +40,7 @@ service ApiService {
     common.BaseResponse DeleteClass(1: string class_id (api.path="class_id")) (api.delete="/v1/classes/:class_id")
 
     // 学生相关接口
-    common.Student GetStudent(1: string student_id (api.path="student_id")) (api.get="/v-1/students/:student_id")
+    common.Student GetStudent(1: string student_id (api.path="student_id")) (api.get="/v1/students/:student_id")
     list<common.Student> ListAllStudents() (api.get="/v1/students")
     common.BaseResponse DeleteStudent(1: string student_id (api.path="student_id")) (api.delete="/v1/students/:student_id")
     

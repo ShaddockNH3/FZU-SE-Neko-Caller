@@ -1,13 +1,17 @@
 package service
 
 import (
+	"context"
+	"errors"
+
 	"FZUSENekoCaller/biz/dal/model"
 	"FZUSENekoCaller/biz/dal/query"
 	"FZUSENekoCaller/biz/model/api"
 	"FZUSENekoCaller/pkg/errno"
-	"context"
 
 	"github.com/google/uuid"
+	"gorm.io/gen/field"
+	"gorm.io/gorm"
 )
 
 type ImportService struct {
@@ -30,15 +34,32 @@ func (s *ImportService) ImportClassData(req *api.ImportDataRequest) error {
 		}
 
 		for _, studentReq := range req.Students {
+			attrs := []field.AssignExpr{
+				tx.Student.StudentID.Value(studentReq.StudentID),
+				tx.Student.Name.Value(studentReq.Name),
+			}
+			if studentReq.Major != nil {
+				attrs = append(attrs, tx.Student.Major.Value(*studentReq.Major))
+			}
+
 			student, err := tx.Student.WithContext(s.ctx).
 				Where(tx.Student.StudentID.Eq(studentReq.StudentID)).
-				Attrs(tx.Student.StudentID.Value(studentReq.StudentID),
-					tx.Student.Name.Value(studentReq.Name),
-					tx.Student.Major.Value(*studentReq.Major)).
+				Assign(tx.Student.Name.Value(studentReq.Name)).
+				Attrs(attrs...).
 				FirstOrCreate()
 
 			if err != nil {
 				return errno.CreateClassOrStudentErr
+			}
+
+			_, err = tx.Enrollment.WithContext(s.ctx).
+				Where(tx.Enrollment.ClassID.Eq(classID), tx.Enrollment.StudentID.Eq(student.StudentID)).
+				First()
+			if err == nil {
+				continue
+			}
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
 			}
 
 			enrollmentID := uuid.New().String()
