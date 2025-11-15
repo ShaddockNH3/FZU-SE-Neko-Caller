@@ -16,6 +16,8 @@ const (
 	CreateClassOrStudentErrCode // 创建班级或学生失败
 	StudentJoinClassErrCode     // 学生加入班级失败
 
+	QueryStudentIDsErrCode // 查询学生ID失败
+
 	StudentNotFoundErrCode // 学生未找到
 )
 
@@ -61,6 +63,9 @@ var (
 	CreateClassErr = NewErrNo(CreateClassErrCode, "Create class failed")
 	CreateClassOrStudentErr = NewErrNo(CreateClassOrStudentErrCode, "Create class or student failed")
 	StudentJoinClassErr = NewErrNo(StudentJoinClassErrCode, "Student join class failed")
+
+	// Enrollment related errors
+	QueryStudentIDsErr = NewErrNo(QueryStudentIDsErrCode, "Query student IDs failed")
 
 	// Roll call related errors
 	StudentNotFoundErr = NewErrNo(StudentNotFoundErrCode, "Student not found")

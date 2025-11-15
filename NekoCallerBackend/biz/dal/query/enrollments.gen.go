@@ -34,6 +34,17 @@ func newEnrollment(db *gorm.DB, opts ...gen.DOOption) enrollment {
 	_enrollment.TotalPoints = field.NewFloat64(tableName, "total_points")
 	_enrollment.CallCount = field.NewInt64(tableName, "call_count")
 	_enrollment.TransferRights = field.NewInt64(tableName, "transfer_rights")
+	_enrollment.Student = enrollmentHasOneStudent{
+		db: db.Session(&gorm.Session{}),
+
+		RelationField: field.NewRelation("Student", "model.Student"),
+	}
+
+	_enrollment.Class = enrollmentHasOneClass{
+		db: db.Session(&gorm.Session{}),
+
+		RelationField: field.NewRelation("Class", "model.Class"),
+	}
 
 	_enrollment.fillFieldMap()
 
@@ -50,6 +61,9 @@ type enrollment struct {
 	TotalPoints    field.Float64
 	CallCount      field.Int64
 	TransferRights field.Int64
+	Student        enrollmentHasOneStudent
+
+	Class enrollmentHasOneClass
 
 	fieldMap map[string]field.Expr
 }
@@ -88,23 +102,192 @@ func (e *enrollment) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (e *enrollment) fillFieldMap() {
-	e.fieldMap = make(map[string]field.Expr, 6)
+	e.fieldMap = make(map[string]field.Expr, 8)
 	e.fieldMap["enrollment_id"] = e.EnrollmentID
 	e.fieldMap["student_id"] = e.StudentID
 	e.fieldMap["class_id"] = e.ClassID
 	e.fieldMap["total_points"] = e.TotalPoints
 	e.fieldMap["call_count"] = e.CallCount
 	e.fieldMap["transfer_rights"] = e.TransferRights
+
 }
 
 func (e enrollment) clone(db *gorm.DB) enrollment {
 	e.enrollmentDo.ReplaceConnPool(db.Statement.ConnPool)
+	e.Student.db = db.Session(&gorm.Session{Initialized: true})
+	e.Student.db.Statement.ConnPool = db.Statement.ConnPool
+	e.Class.db = db.Session(&gorm.Session{Initialized: true})
+	e.Class.db.Statement.ConnPool = db.Statement.ConnPool
 	return e
 }
 
 func (e enrollment) replaceDB(db *gorm.DB) enrollment {
 	e.enrollmentDo.ReplaceDB(db)
+	e.Student.db = db.Session(&gorm.Session{})
+	e.Class.db = db.Session(&gorm.Session{})
 	return e
+}
+
+type enrollmentHasOneStudent struct {
+	db *gorm.DB
+
+	field.RelationField
+}
+
+func (a enrollmentHasOneStudent) Where(conds ...field.Expr) *enrollmentHasOneStudent {
+	if len(conds) == 0 {
+		return &a
+	}
+
+	exprs := make([]clause.Expression, 0, len(conds))
+	for _, cond := range conds {
+		exprs = append(exprs, cond.BeCond().(clause.Expression))
+	}
+	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
+	return &a
+}
+
+func (a enrollmentHasOneStudent) WithContext(ctx context.Context) *enrollmentHasOneStudent {
+	a.db = a.db.WithContext(ctx)
+	return &a
+}
+
+func (a enrollmentHasOneStudent) Session(session *gorm.Session) *enrollmentHasOneStudent {
+	a.db = a.db.Session(session)
+	return &a
+}
+
+func (a enrollmentHasOneStudent) Model(m *model.Enrollment) *enrollmentHasOneStudentTx {
+	return &enrollmentHasOneStudentTx{a.db.Model(m).Association(a.Name())}
+}
+
+func (a enrollmentHasOneStudent) Unscoped() *enrollmentHasOneStudent {
+	a.db = a.db.Unscoped()
+	return &a
+}
+
+type enrollmentHasOneStudentTx struct{ tx *gorm.Association }
+
+func (a enrollmentHasOneStudentTx) Find() (result *model.Student, err error) {
+	return result, a.tx.Find(&result)
+}
+
+func (a enrollmentHasOneStudentTx) Append(values ...*model.Student) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Append(targetValues...)
+}
+
+func (a enrollmentHasOneStudentTx) Replace(values ...*model.Student) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Replace(targetValues...)
+}
+
+func (a enrollmentHasOneStudentTx) Delete(values ...*model.Student) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Delete(targetValues...)
+}
+
+func (a enrollmentHasOneStudentTx) Clear() error {
+	return a.tx.Clear()
+}
+
+func (a enrollmentHasOneStudentTx) Count() int64 {
+	return a.tx.Count()
+}
+
+func (a enrollmentHasOneStudentTx) Unscoped() *enrollmentHasOneStudentTx {
+	a.tx = a.tx.Unscoped()
+	return &a
+}
+
+type enrollmentHasOneClass struct {
+	db *gorm.DB
+
+	field.RelationField
+}
+
+func (a enrollmentHasOneClass) Where(conds ...field.Expr) *enrollmentHasOneClass {
+	if len(conds) == 0 {
+		return &a
+	}
+
+	exprs := make([]clause.Expression, 0, len(conds))
+	for _, cond := range conds {
+		exprs = append(exprs, cond.BeCond().(clause.Expression))
+	}
+	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
+	return &a
+}
+
+func (a enrollmentHasOneClass) WithContext(ctx context.Context) *enrollmentHasOneClass {
+	a.db = a.db.WithContext(ctx)
+	return &a
+}
+
+func (a enrollmentHasOneClass) Session(session *gorm.Session) *enrollmentHasOneClass {
+	a.db = a.db.Session(session)
+	return &a
+}
+
+func (a enrollmentHasOneClass) Model(m *model.Enrollment) *enrollmentHasOneClassTx {
+	return &enrollmentHasOneClassTx{a.db.Model(m).Association(a.Name())}
+}
+
+func (a enrollmentHasOneClass) Unscoped() *enrollmentHasOneClass {
+	a.db = a.db.Unscoped()
+	return &a
+}
+
+type enrollmentHasOneClassTx struct{ tx *gorm.Association }
+
+func (a enrollmentHasOneClassTx) Find() (result *model.Class, err error) {
+	return result, a.tx.Find(&result)
+}
+
+func (a enrollmentHasOneClassTx) Append(values ...*model.Class) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Append(targetValues...)
+}
+
+func (a enrollmentHasOneClassTx) Replace(values ...*model.Class) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Replace(targetValues...)
+}
+
+func (a enrollmentHasOneClassTx) Delete(values ...*model.Class) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Delete(targetValues...)
+}
+
+func (a enrollmentHasOneClassTx) Clear() error {
+	return a.tx.Clear()
+}
+
+func (a enrollmentHasOneClassTx) Count() int64 {
+	return a.tx.Count()
+}
+
+func (a enrollmentHasOneClassTx) Unscoped() *enrollmentHasOneClassTx {
+	a.tx = a.tx.Unscoped()
+	return &a
 }
 
 type enrollmentDo struct{ gen.DO }

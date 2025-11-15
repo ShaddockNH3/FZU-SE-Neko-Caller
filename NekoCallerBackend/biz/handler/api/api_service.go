@@ -28,15 +28,15 @@ func ImportClassData(ctx context.Context, c *app.RequestContext) {
 	resp := new(common.BaseResponse)
 
 	s := service.NewImportService(ctx)
-    if err := s.ImportClassData(&req); err != nil {
-        resp.Code = constants.CodeFailed
-        resp.Message = err.Error()
-        c.JSON(consts.StatusInternalServerError, resp)
-        return
-    }
+	if err := s.ImportClassData(&req); err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
 
 	resp.Code = constants.CodeSuccess
-    resp.Message = "课表导入成功"
+	resp.Message = "导入成功"
 
 	c.JSON(consts.StatusOK, resp)
 }
@@ -54,6 +54,15 @@ func GetClass(ctx context.Context, c *app.RequestContext) {
 
 	resp := new(common.Class)
 
+	s := service.NewAPIService(ctx)
+	class, err := s.GetClass(req)
+	if err != nil {
+		resp = nil
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp = class
+
 	c.JSON(consts.StatusOK, resp)
 }
 
@@ -64,7 +73,7 @@ func ListClasses(ctx context.Context, c *app.RequestContext) {
 
 	resp := new([]*common.Class)
 
-	s:= service.NewAPIService(ctx)
+	s := service.NewAPIService(ctx)
 	classes, err := s.ListClasses()
 	if err != nil {
 		resp = nil
@@ -105,6 +114,15 @@ func GetStudent(ctx context.Context, c *app.RequestContext) {
 
 	resp := new(common.Student)
 
+	s := service.NewAPIService(ctx)
+	student, err := s.GetStudent(req)
+	if err != nil {
+		resp = nil
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp = student
+
 	c.JSON(consts.StatusOK, resp)
 }
 
@@ -115,7 +133,7 @@ func ListAllStudents(ctx context.Context, c *app.RequestContext) {
 
 	resp := new([]*common.Student)
 
-	s:= service.NewAPIService(ctx)
+	s := service.NewAPIService(ctx)
 	students, err := s.ListAllStudents()
 	if err != nil {
 		resp = nil
@@ -156,6 +174,15 @@ func GetClassRoster(ctx context.Context, c *app.RequestContext) {
 
 	resp := new([]*common.RosterItem)
 
+	s := service.NewAPIService(ctx)
+	roster, err := s.GetClassRoster(req)
+	if err != nil {
+		resp = nil
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp = &roster
+
 	c.JSON(consts.StatusOK, resp)
 }
 
@@ -189,13 +216,16 @@ func RollCall(ctx context.Context, c *app.RequestContext) {
 	resp := new(api.RollCallResponse)
 
 	s := service.NewAPIService(ctx)
-	rollCallResp, err := s.RollCall(&req)
+	currentRoster, err := s.RollCall(&req)
 	if err != nil {
 		resp = nil
 		c.JSON(consts.StatusInternalServerError, resp)
 		return
 	}
-	resp = rollCallResp
+
+	resp.BaseResponse.Code = constants.CodeSuccess
+	resp.BaseResponse.Message = "点名成功"
+	resp.RosterItem = &currentRoster
 
 	c.JSON(consts.StatusOK, resp)
 }
