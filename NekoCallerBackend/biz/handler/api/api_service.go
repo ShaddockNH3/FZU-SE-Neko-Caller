@@ -188,6 +188,15 @@ func RollCall(ctx context.Context, c *app.RequestContext) {
 
 	resp := new(api.RollCallResponse)
 
+	s := service.NewAPIService(ctx)
+	rollCallResp, err := s.RollCall(&req)
+	if err != nil {
+		resp = nil
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+	resp = rollCallResp
+
 	c.JSON(consts.StatusOK, resp)
 }
 

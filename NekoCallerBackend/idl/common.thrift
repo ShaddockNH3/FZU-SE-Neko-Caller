@@ -47,7 +47,7 @@ enum RollCallMode{
 // 随机事件类型
 enum RandomEventType{
     NONE = 0,
-    Double_Point = 1,   // 日期双倍积分
+    Double_Point = 1,   // 双倍积分
     CRAZY_THURSDAY = 2, // 疯狂星期四
     // 后续扩展
 }

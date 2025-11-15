@@ -15,6 +15,8 @@ const (
 	CreateClassErrCode          // 创建班级失败
 	CreateClassOrStudentErrCode // 创建班级或学生失败
 	StudentJoinClassErrCode     // 学生加入班级失败
+
+	StudentNotFoundErrCode // 学生未找到
 )
 
 // ========================== Error Messages ==========================
@@ -59,6 +61,9 @@ var (
 	CreateClassErr = NewErrNo(CreateClassErrCode, "Create class failed")
 	CreateClassOrStudentErr = NewErrNo(CreateClassOrStudentErrCode, "Create class or student failed")
 	StudentJoinClassErr = NewErrNo(StudentJoinClassErrCode, "Student join class failed")
+
+	// Roll call related errors
+	StudentNotFoundErr = NewErrNo(StudentNotFoundErrCode, "Student not found")
 )
 
 func ConvertErr(err error) ErrNo {
