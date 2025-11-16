@@ -102,4 +102,7 @@ service ApiService {
     
     // 点名结算
     common.BaseResponse SolveRollCall(1: SolveRollCallRequest req) (api.post="/v1/roll-calls/solve")
+    
+    // 重置点名状态（用于顺序/逆序点名）
+    common.BaseResponse ResetRollCall(1: string class_id (api.body="class_id")) (api.post="/v1/roll-calls/reset")
 }

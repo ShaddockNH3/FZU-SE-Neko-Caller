@@ -324,6 +324,40 @@ func (s *APIService) afterRollCall(item common.RosterItem, req *api.RollCallRequ
 			return err
 		}
 
+		// 顺序点名或逆序点名时，检查是否需要重置其他学生的点名次数
+		if req.Mode == common.RollCallMode_SEQUENTIAL || req.Mode == common.RollCallMode_REVERSE_SEQUENTIAL {
+			// 获取当前班级所有学生的点名次数
+			enrollments, err := tx.Enrollment.WithContext(s.ctx).
+				Where(tx.Enrollment.ClassID.Eq(req.ClassID)).
+				Find()
+			if err != nil {
+				return err
+			}
+
+			// 检查是否所有学生都被点过名（callCount > 0）
+			allCalled := true
+			for _, en := range enrollments {
+				if en.CallCount == 0 {
+					allCalled = false
+					break
+				}
+			}
+
+			// 如果所有学生都被点过名，重置所有人的callCount为0（除了当前被点名的学生保持为1）
+			if allCalled {
+				for _, en := range enrollments {
+					if en.EnrollmentID == item.EnrollmentInfo.EnrollmentID {
+						continue // 跳过当前学生，他的callCount已经更新为1了
+					}
+					if _, err := tx.Enrollment.WithContext(s.ctx).
+						Where(tx.Enrollment.EnrollmentID.Eq(en.EnrollmentID)).
+						Update(tx.Enrollment.CallCount, 0); err != nil {
+						return err
+					}
+				}
+			}
+		}
+
 		// 每点名2次增加一个转移权
 		if newCallCount%2 == 0 {
 			if _, err := tx.Enrollment.WithContext(s.ctx).
@@ -588,4 +622,31 @@ func (s *APIService) GetClassStats(classID string) (*ClassStats, error) {
 	stats.AveragePoints = math.Round(totalPoints/float64(len(enrollments))*100) / 100
 
 	return stats, nil
+}
+
+// ResetRollCall 重置班级点名状态（用于顺序/逆序点名重新开始）
+func (s *APIService) ResetRollCall(classID string) error {
+	q := query.Use(s.db)
+
+	// 验证班级存在
+	_, err := q.Class.WithContext(s.ctx).
+		Where(q.Class.ClassID.Eq(classID)).
+		First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errno.ServiceErr.WithMessage("班级不存在")
+		}
+		return errno.ServiceErr
+	}
+
+	// 重置该班级所有学生的CallCount为0
+	_, err = q.Enrollment.WithContext(s.ctx).
+		Where(q.Enrollment.ClassID.Eq(classID)).
+		Update(q.Enrollment.CallCount, 0)
+
+	if err != nil {
+		return errno.ServiceErr
+	}
+
+	return nil
 }

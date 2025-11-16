@@ -338,3 +338,32 @@ func SolveRollCall(ctx context.Context, c *app.RequestContext) {
 
 	c.JSON(consts.StatusOK, resp)
 }
+
+// ResetRollCall .
+// @router /v1/roll-calls/reset [POST]
+func ResetRollCall(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req struct {
+		ClassID string `json:"class_id"`
+	}
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp := new(common.BaseResponse)
+
+	s := service.NewAPIService(ctx)
+	if err := s.ResetRollCall(req.ClassID); err != nil {
+		resp.Code = constants.CodeFailed
+		resp.Message = err.Error()
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	resp.Code = constants.CodeSuccess
+	resp.Message = "重置成功"
+
+	c.JSON(consts.StatusOK, resp)
+}

@@ -39,6 +39,14 @@
                 开始点名
               </el-button>
             </el-form-item>
+
+            <el-form-item v-if="mode === 1 || mode === 2">
+              <el-button type="warning" size="large" style="width: 100%;" @click="resetRollCall" :disabled="!selectedClassId" :loading="resetting">
+                <el-icon><RefreshLeft /></el-icon>
+                重置点名状态
+              </el-button>
+              <el-text type="info" size="small" style="margin-top: 5px;">用于顺序/逆序点名重新开始</el-text>
+            </el-form-item>
           </el-form>
         </el-card>
 
@@ -151,13 +159,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { classAPI, rollCallAPI, rosterAPI } from '@/api'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const classList = ref([])
 const selectedClassId = ref('')
 const mode = ref(0)
 const eventType = ref(0)
 const calling = ref(false)
+const resetting = ref(false)
 const currentStudent = ref(null)
 const answerType = ref(0)
 const customScore = ref(0)
@@ -222,6 +231,39 @@ const startRollCall = async () => {
     ElMessage.error(error.message || '点名失败')
   } finally {
     calling.value = false
+  }
+}
+
+const resetRollCall = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '重置后，该班级所有学生的点名次数将归零，是否继续？',
+      '确认重置',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    resetting.value = true
+    const result = await rollCallAPI.reset(selectedClassId.value)
+    
+    if (result.code === 100) {
+      ElMessage.success('重置成功')
+      // 刷新花名册
+      await onClassChange()
+      // 清除当前点名学生
+      currentStudent.value = null
+    } else {
+      throw new Error(result.message || '重置失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '重置失败')
+    }
+  } finally {
+    resetting.value = false
   }
 }
 

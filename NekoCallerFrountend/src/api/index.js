@@ -98,6 +98,10 @@ export const rollCallAPI = {
   // 结算点名
   solve(data) {
     return request.post('/roll-calls/solve', data)
+  },
+  // 重置点名状态
+  reset(classId) {
+    return request.post('/roll-calls/reset', { class_id: classId })
   }
 }
 

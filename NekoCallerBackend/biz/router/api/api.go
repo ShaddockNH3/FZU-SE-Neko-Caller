@@ -27,6 +27,7 @@ func Register(r *server.Hertz) {
 		_class_id.GET("/stats", append(_getclassstatsMw(), api.GetClassStats)...)
 		_v1.POST("/roll-calls", append(_rollcallMw(), api.RollCall)...)
 		_roll_calls := _v1.Group("/roll-calls", _roll_callsMw()...)
+		_roll_calls.POST("/reset", append(_resetrollcallMw(), api.ResetRollCall)...)
 		_roll_calls.POST("/solve", append(_solverollcallMw(), api.SolveRollCall)...)
 		_v1.GET("/roster", append(_getclassrosterMw(), api.GetClassRoster)...)
 		_v1.GET("/students", append(_listallstudentsMw(), api.ListAllStudents)...)
