@@ -6,18 +6,19 @@ import (
 	"log"
 
 	"FZUSENekoCaller/biz/dal/mysql"
-	"FZUSENekoCaller/biz/router"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
 func main() {
-	if mysql.Init() == nil {
-		log.Fatal("mysql initialization failed")
-	}
+	// 初始化数据库
+	mysql.Init()
+	log.Println("数据库初始化成功")
 
 	h := server.Default()
 
-	router.GeneratedRegister(h)
+	register(h)
+
+	log.Println("服务器启动在端口 :8888")
 	h.Spin()
 }

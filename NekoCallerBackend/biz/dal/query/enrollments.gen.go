@@ -34,6 +34,7 @@ func newEnrollment(db *gorm.DB, opts ...gen.DOOption) enrollment {
 	_enrollment.TotalPoints = field.NewFloat64(tableName, "total_points")
 	_enrollment.CallCount = field.NewInt64(tableName, "call_count")
 	_enrollment.TransferRights = field.NewInt64(tableName, "transfer_rights")
+	_enrollment.SkipRights = field.NewInt64(tableName, "skip_rights")
 	_enrollment.Student = enrollmentHasOneStudent{
 		db: db.Session(&gorm.Session{}),
 
@@ -61,6 +62,7 @@ type enrollment struct {
 	TotalPoints    field.Float64
 	CallCount      field.Int64
 	TransferRights field.Int64
+	SkipRights     field.Int64
 	Student        enrollmentHasOneStudent
 
 	Class enrollmentHasOneClass
@@ -86,6 +88,7 @@ func (e *enrollment) updateTableName(table string) *enrollment {
 	e.TotalPoints = field.NewFloat64(table, "total_points")
 	e.CallCount = field.NewInt64(table, "call_count")
 	e.TransferRights = field.NewInt64(table, "transfer_rights")
+	e.SkipRights = field.NewInt64(table, "skip_rights")
 
 	e.fillFieldMap()
 
@@ -102,13 +105,14 @@ func (e *enrollment) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (e *enrollment) fillFieldMap() {
-	e.fieldMap = make(map[string]field.Expr, 8)
+	e.fieldMap = make(map[string]field.Expr, 9)
 	e.fieldMap["enrollment_id"] = e.EnrollmentID
 	e.fieldMap["student_id"] = e.StudentID
 	e.fieldMap["class_id"] = e.ClassID
 	e.fieldMap["total_points"] = e.TotalPoints
 	e.fieldMap["call_count"] = e.CallCount
 	e.fieldMap["transfer_rights"] = e.TransferRights
+	e.fieldMap["skip_rights"] = e.SkipRights
 
 }
 

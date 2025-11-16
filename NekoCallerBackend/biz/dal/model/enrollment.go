@@ -7,6 +7,7 @@ type Enrollment struct {
 	TotalPoints    float64 `gorm:"default:0"`                    // 该学生在该班级的总积分
 	CallCount      int64   `gorm:"default:0"`                    // 该学生在该班级的被点名次数
 	TransferRights int64   `gorm:"default:0"`                    // 该学生在该班级的点名转移权
+	SkipRights     int64   `gorm:"default:0"`                    // 该学生在该班级的跳过权
 
 	Student Student `gorm:"foreignKey:StudentID;references:StudentID;constraint:OnDelete:CASCADE"` // 外键查询
 	Class   Class   `gorm:"foreignKey:ClassID;references:ClassID;constraint:OnDelete:CASCADE"`

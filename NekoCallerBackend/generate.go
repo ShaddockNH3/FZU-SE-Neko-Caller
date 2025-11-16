@@ -38,6 +38,8 @@ func main() {
 		model.Student{},
 		model.Class{},
 		model.Enrollment{},
+		model.RollCallRecord{},
+		model.ScoreEvent{},
 	)
 
 	g.Execute()

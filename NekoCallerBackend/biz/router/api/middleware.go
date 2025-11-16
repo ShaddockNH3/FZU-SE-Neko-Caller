@@ -11,21 +11,6 @@ func rootMw() []app.HandlerFunc {
 	return nil
 }
 
-func _v_1Mw() []app.HandlerFunc {
-	// your code...
-	return nil
-}
-
-func _studentsMw() []app.HandlerFunc {
-	// your code...
-	return nil
-}
-
-func _getstudentMw() []app.HandlerFunc {
-	// your code...
-	return nil
-}
-
 func _v1Mw() []app.HandlerFunc {
 	// your code...
 	return nil
@@ -41,7 +26,22 @@ func _listclassesMw() []app.HandlerFunc {
 	return nil
 }
 
+func _class_idMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
 func _deleteclassMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getleaderboardMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getclassstatsMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
@@ -66,7 +66,7 @@ func _getclassrosterMw() []app.HandlerFunc {
 	return nil
 }
 
-func _students0Mw() []app.HandlerFunc {
+func _studentsMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
@@ -107,6 +107,16 @@ func _importMw() []app.HandlerFunc {
 }
 
 func _importclassdataMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _students0Mw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getstudentMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }

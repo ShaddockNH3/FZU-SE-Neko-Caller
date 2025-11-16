@@ -28,6 +28,7 @@ struct Enrollment {
     4: double total_points,     // 该学生在该班级的总积分
     5: i64 call_count,         // 该学生在该班级的被点名次数
     6: i64 transfer_rights,    // 该学生在该班级的点名转移权
+    7: i64 skip_rights,        // 该学生在该班级的跳过权
 }
 
 // 获取班级花名册时，返回的数据项

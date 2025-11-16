@@ -4,7 +4,6 @@ package api
 
 import (
 	api "FZUSENekoCaller/biz/handler/api"
-
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
@@ -23,17 +22,16 @@ func Register(r *server.Hertz) {
 		_v1.GET("/classes", append(_listclassesMw(), api.ListClasses)...)
 		_classes := _v1.Group("/classes", _classesMw()...)
 		_classes.DELETE("/:class_id", append(_deleteclassMw(), api.DeleteClass)...)
-		_classes.GET("/:class_id/export", append(_getclassMw(), api.ExportClassRoster)...)
-		_classes.GET("/:class_id/leaderboard", append(_getclassMw(), api.GetLeaderboard)...)
-		_classes.GET("/:class_id/stats", append(_getclassMw(), api.GetClassStats)...)
+		_class_id := _classes.Group("/:class_id", _class_idMw()...)
+		_class_id.GET("/leaderboard", append(_getleaderboardMw(), api.GetLeaderboard)...)
+		_class_id.GET("/stats", append(_getclassstatsMw(), api.GetClassStats)...)
 		_v1.POST("/roll-calls", append(_rollcallMw(), api.RollCall)...)
 		_roll_calls := _v1.Group("/roll-calls", _roll_callsMw()...)
 		_roll_calls.POST("/solve", append(_solverollcallMw(), api.SolveRollCall)...)
 		_v1.GET("/roster", append(_getclassrosterMw(), api.GetClassRoster)...)
 		_v1.GET("/students", append(_listallstudentsMw(), api.ListAllStudents)...)
-		_students0 := _v1.Group("/students", _students0Mw()...)
-		_students0.GET("/:student_id", append(_getstudentMw(), api.GetStudent)...)
-		_students0.DELETE("/:student_id", append(_deletestudentMw(), api.DeleteStudent)...)
+		_students := _v1.Group("/students", _studentsMw()...)
+		_students.DELETE("/:student_id", append(_deletestudentMw(), api.DeleteStudent)...)
 		{
 			_classes0 := _v1.Group("/classes", _classes0Mw()...)
 			_classes0.GET("/:class_id", append(_getclassMw(), api.GetClass)...)
@@ -45,7 +43,10 @@ func Register(r *server.Hertz) {
 		{
 			_import := _v1.Group("/import", _importMw()...)
 			_import.POST("/class-data", append(_importclassdataMw(), api.ImportClassData)...)
-			_import.POST("/excel", append(_importclassdataMw(), api.ImportClassDataFromExcel)...)
+		}
+		{
+			_students0 := _v1.Group("/students", _students0Mw()...)
+			_students0.GET("/:student_id", append(_getstudentMw(), api.GetStudent)...)
 		}
 	}
 }

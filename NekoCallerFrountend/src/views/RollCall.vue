@@ -16,7 +16,7 @@
             </el-form-item>
 
             <el-form-item label="点名模式">
-              <el-radio-group v-model="mode">
+              <el-radio-group v-model="mode" @change="onModeChange">
                 <el-radio :label="0">随机点名</el-radio>
                 <el-radio :label="1">顺序点名</el-radio>
                 <el-radio :label="2">逆序点名</el-radio>
@@ -25,11 +25,12 @@
             </el-form-item>
 
             <el-form-item label="事件类型">
-              <el-radio-group v-model="eventType">
+              <el-radio-group v-model="eventType" :disabled="mode !== 0">
                 <el-radio :label="0">无事件</el-radio>
                 <el-radio :label="1">双倍积分</el-radio>
                 <el-radio :label="2">疯狂星期四</el-radio>
               </el-radio-group>
+              <el-text v-if="mode !== 0" type="info" size="small" style="margin-left: 10px;">仅随机点名模式可选事件</el-text>
             </el-form-item>
 
             <el-form-item>
@@ -90,6 +91,11 @@
                   {{ currentStudent.enrollment_info.transfer_rights }}
                 </el-tag>
               </el-descriptions-item>
+              <el-descriptions-item label="跳过权">
+                <el-tag :type="currentStudent.enrollment_info.skip_rights > 0 ? 'success' : 'info'">
+                  {{ currentStudent.enrollment_info.skip_rights }}
+                </el-tag>
+              </el-descriptions-item>
               <el-descriptions-item label="事件">
                 <el-tag v-if="eventType === 1" type="warning" effect="dark">双倍积分</el-tag>
                 <el-tag v-else-if="eventType === 2" type="danger" effect="dark">疯狂星期四</el-tag>
@@ -104,18 +110,21 @@
             <el-form-item label="回答类型">
               <el-radio-group v-model="answerType">
                 <el-radio :label="0">正常回答</el-radio>
-                <el-radio :label="1">请求帮助</el-radio>
-                <el-radio :label="2">跳过</el-radio>
-                <el-radio :label="3">转移权</el-radio>
+                <el-radio :label="1">请求帮助（准确重复）</el-radio>
+                <el-radio :label="2" :disabled="!hasSkipRight">跳过（需跳过权）</el-radio>
+                <el-radio :label="3" :disabled="!hasTransferRight">转移权</el-radio>
               </el-radio-group>
+              <div style="margin-top: 5px;">
+                <el-text v-if="answerType === 2 && !hasSkipRight" type="warning" size="small">跳过权不足</el-text>
+                <el-text v-if="answerType === 3 && !hasTransferRight" type="warning" size="small">转移权不足</el-text>
+              </div>
             </el-form-item>
 
-            <el-form-item label="自定义分数" v-if="answerType === 0">
-              <el-slider v-model="customScore" :min="0.5" :max="3" :step="0.5" show-stops :marks="{ 0.5: '0.5', 1: '1', 1.5: '1.5', 2: '2', 2.5: '2.5', 3: '3' }" />
+            <el-form-item label="回答分数" v-if="answerType === 0">
+              <el-slider v-model="customScore" :min="-1" :max="3" :step="0.5" show-stops :marks="{ '-1': '-1', '-0.5': '-0.5', 0: '0', 0.5: '0.5', 1: '1', 1.5: '1.5', 2: '2', 2.5: '2.5', 3: '3' }" />
               <div style="margin-top: 10px;">
-                <el-tag>基础分：{{ customScore }}</el-tag>
-                <el-tag v-if="eventType === 1" type="warning" style="margin-left: 10px;">双倍后：{{ customScore * 2 }}</el-tag>
-                <el-tag v-if="eventType === 2" type="danger" style="margin-left: 10px;">疯四后：{{ (customScore * (Math.random() * 2 + 1)).toFixed(1) }}</el-tag>
+                <el-tag v-if="eventType === 1" type="warning">双倍后：{{ (customScore + 1) * 2 }}</el-tag>
+                <el-tag v-if="eventType === 2" type="danger" style="margin-left: 10px;">疯四后：{{ ((customScore + 1) * 1.5).toFixed(1) }}</el-tag>
               </div>
             </el-form-item>
 
@@ -140,7 +149,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { classAPI, rollCallAPI, rosterAPI } from '@/api'
 import { ElMessage } from 'element-plus'
 
@@ -151,11 +160,28 @@ const eventType = ref(0)
 const calling = ref(false)
 const currentStudent = ref(null)
 const answerType = ref(0)
-const customScore = ref(1)
+const customScore = ref(0)
 const targetStudentId = ref('')
 const solving = ref(false)
 const classRoster = ref([])
 const history = ref([])
+
+// 计算属性：是否有转移权
+const hasTransferRight = computed(() => {
+  return currentStudent.value?.enrollment_info?.transfer_rights > 0
+})
+
+// 计算属性：是否有跳过权
+const hasSkipRight = computed(() => {
+  return currentStudent.value?.enrollment_info?.skip_rights > 0
+})
+
+// 模式切换时重置事件类型
+const onModeChange = () => {
+  if (mode.value !== 0) {
+    eventType.value = 0
+  }
+}
 
 const loadClasses = async () => {
   try {
@@ -186,7 +212,7 @@ const startRollCall = async () => {
     if (result.base_response?.code === 100 && result.roster_item) {
       currentStudent.value = result.roster_item
       answerType.value = 0
-      customScore.value = 1
+      customScore.value = 0
       targetStudentId.value = ''
       ElMessage.success(`点到了 ${result.roster_item.student_info.name}`)
     } else {
@@ -208,6 +234,12 @@ const submitSolve = async () => {
   // 检查转移权
   if (answerType.value === 3 && currentStudent.value.enrollment_info.transfer_rights <= 0) {
     ElMessage.warning('转移权不足')
+    return
+  }
+
+  // 检查跳过权
+  if (answerType.value === 2 && currentStudent.value.enrollment_info.skip_rights <= 0) {
+    ElMessage.warning('跳过权不足')
     return
   }
 
@@ -235,15 +267,24 @@ const submitSolve = async () => {
 
     const result = await rollCallAPI.solve(payload)
     
-    // 计算积分变化
-    let scoreChange = 1.0
-    if (answerType.value === 0) scoreChange = customScore.value
-    else if (answerType.value === 1) scoreChange = 0.5
-    else if (answerType.value === 2) scoreChange = -1.0
-    else if (answerType.value === 3) scoreChange = -0.5
+    // 计算积分变化（根据新规则）
+    let scoreChange = 0
+    if (answerType.value === 0) {
+      // 正常回答：到达+1 + 回答得分（-1到3）
+      scoreChange = 1.0 + customScore.value
+    } else if (answerType.value === 1) {
+      // 请求帮助：到达+1 + 准确重复+0.5
+      scoreChange = 1.5
+    } else if (answerType.value === 2) {
+      // 跳过：到达+1
+      scoreChange = 1.0
+    } else if (answerType.value === 3) {
+      // 转移：到达+1
+      scoreChange = 1.0
+    }
     
-    // 应用事件加成
-    if (answerType.value !== 3) {
+    // 应用事件加成（只对正常回答和请求帮助）
+    if (answerType.value === 0 || answerType.value === 1) {
       if (eventType.value === 1) scoreChange *= 2
       else if (eventType.value === 2) scoreChange *= 1.5
     }
@@ -253,7 +294,7 @@ const submitSolve = async () => {
       timestamp: new Date().toLocaleTimeString(),
       studentName: currentStudent.value.student_info.name,
       answerType: answerType.value,
-      scoreChange: scoreChange
+      scoreChange: Math.round(scoreChange * 100) / 100
     })
 
     ElMessage.success('结算成功')

@@ -164,14 +164,19 @@ func (s *APIService) ListAllStudents() ([]*common.Student, error) {
 }
 
 func (s *APIService) DeleteStudent(studentID string) error {
-	return s.db.WithContext(s.ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("student_id = ?", studentID).
-			Delete(&model.Enrollment{}).Error; err != nil {
+	q := query.Use(s.db)
+	return q.Transaction(func(tx *query.Query) error {
+		// 删除所有选课记录
+		if _, err := tx.Enrollment.WithContext(s.ctx).
+			Where(tx.Enrollment.StudentID.Eq(studentID)).
+			Delete(); err != nil {
 			return err
 		}
 
-		if err := tx.Where("student_id = ?", studentID).
-			Delete(&model.Student{}).Error; err != nil {
+		// 删除学生
+		if _, err := tx.Student.WithContext(s.ctx).
+			Where(tx.Student.StudentID.Eq(studentID)).
+			Delete(); err != nil {
 			return err
 		}
 
@@ -184,12 +189,11 @@ func (s *APIService) GetClassRoster(classID string) ([]*common.RosterItem, error
 }
 
 func (s *APIService) RemoveStudentFromClass(enrollmentID string) error {
-	if err := s.db.WithContext(s.ctx).
-		Where("enrollment_id = ?", enrollmentID).
-		Delete(&model.Enrollment{}).Error; err != nil {
-		return err
-	}
-	return nil
+	q := query.Use(s.db)
+	_, err := q.Enrollment.WithContext(s.ctx).
+		Where(q.Enrollment.EnrollmentID.Eq(enrollmentID)).
+		Delete()
+	return err
 }
 
 func (s *APIService) RollCall(req *api.RollCallRequest) (common.RosterItem, error) {
@@ -212,10 +216,13 @@ func (s *APIService) RollCall(req *api.RollCallRequest) (common.RosterItem, erro
 
 func (s *APIService) SolveRollCall(req *api.SolveRollCallRequest) error {
 	delta := calculateScoreDelta(req)
-	return s.db.WithContext(s.ctx).Transaction(func(tx *gorm.DB) error {
-		var enrollment model.Enrollment
-		if err := tx.Where("enrollment_id = ?", req.EnrollmentID).
-			First(&enrollment).Error; err != nil {
+	q := query.Use(s.db)
+	return q.Transaction(func(tx *query.Query) error {
+		// 查找选课记录
+		enrollment, err := tx.Enrollment.WithContext(s.ctx).
+			Where(tx.Enrollment.EnrollmentID.Eq(req.EnrollmentID)).
+			First()
+		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return errno.StudentNotFoundErr
 			}
@@ -225,18 +232,33 @@ func (s *APIService) SolveRollCall(req *api.SolveRollCallRequest) error {
 		var transferTarget *model.Enrollment
 		if req.AnswerType == common.AnswerType_TRANSFER {
 			var err error
-			transferTarget, err = s.processTransfer(tx, &enrollment, req)
+			transferTarget, err = s.processTransfer(tx, enrollment, req)
 			if err != nil {
 				return err
 			}
 		}
 
-		if err := tx.Model(&model.Enrollment{}).
-			Where("enrollment_id = ?", req.EnrollmentID).
-			Update("total_points", gorm.Expr("total_points + ?", delta)).Error; err != nil {
+		// 处理跳过权
+		if req.AnswerType == common.AnswerType_SKIP {
+			if enrollment.SkipRights <= 0 {
+				return errno.ParamErr.WithMessage("skip rights not enough")
+			}
+			// 消耗跳过权
+			if _, err := tx.Enrollment.WithContext(s.ctx).
+				Where(tx.Enrollment.EnrollmentID.Eq(req.EnrollmentID)).
+				Update(tx.Enrollment.SkipRights, enrollment.SkipRights-1); err != nil {
+				return err
+			}
+		}
+
+		// 更新总积分
+		if _, err := tx.Enrollment.WithContext(s.ctx).
+			Where(tx.Enrollment.EnrollmentID.Eq(req.EnrollmentID)).
+			Update(tx.Enrollment.TotalPoints, enrollment.TotalPoints+delta); err != nil {
 			return err
 		}
 
+		// 记录积分事件
 		reason := fmt.Sprintf("answer=%s", req.AnswerType.String())
 		metadata := datatypes.JSONMap(nil)
 		if transferTarget != nil {
@@ -256,7 +278,7 @@ func (s *APIService) SolveRollCall(req *api.SolveRollCallRequest) error {
 			EventType:    int32(req.EventType),
 			Metadata:     metadata,
 		}
-		if err := tx.Create(event).Error; err != nil {
+		if err := tx.ScoreEvent.WithContext(s.ctx).Create(event); err != nil {
 			return err
 		}
 
@@ -292,19 +314,26 @@ func (s *APIService) loadRoster(classID string) ([]*common.RosterItem, error) {
 }
 
 func (s *APIService) afterRollCall(item common.RosterItem, req *api.RollCallRequest) error {
-	return s.db.WithContext(s.ctx).Transaction(func(tx *gorm.DB) error {
-		updates := map[string]any{
-			"call_count": item.EnrollmentInfo.CallCount + 1,
-		}
-		if updates["call_count"].(int64)%2 == 0 {
-			updates["transfer_rights"] = gorm.Expr("transfer_rights + 1")
-		}
-		if err := tx.Model(&model.Enrollment{}).
-			Where("enrollment_id = ?", item.EnrollmentInfo.EnrollmentID).
-			Updates(updates).Error; err != nil {
+	q := query.Use(s.db)
+	return q.Transaction(func(tx *query.Query) error {
+		// 更新点名次数
+		newCallCount := item.EnrollmentInfo.CallCount + 1
+		if _, err := tx.Enrollment.WithContext(s.ctx).
+			Where(tx.Enrollment.EnrollmentID.Eq(item.EnrollmentInfo.EnrollmentID)).
+			Update(tx.Enrollment.CallCount, newCallCount); err != nil {
 			return err
 		}
 
+		// 每点名2次增加一个转移权
+		if newCallCount%2 == 0 {
+			if _, err := tx.Enrollment.WithContext(s.ctx).
+				Where(tx.Enrollment.EnrollmentID.Eq(item.EnrollmentInfo.EnrollmentID)).
+				UpdateSimple(tx.Enrollment.TransferRights.Add(1)); err != nil {
+				return err
+			}
+		}
+
+		// 记录点名记录
 		record := &model.RollCallRecord{
 			RecordID:     uuid.NewString(),
 			ClassID:      req.ClassID,
@@ -315,7 +344,7 @@ func (s *APIService) afterRollCall(item common.RosterItem, req *api.RollCallRequ
 			CreatedAt:    time.Now(),
 		}
 
-		if err := tx.Create(record).Error; err != nil {
+		if err := tx.RollCallRecord.WithContext(s.ctx).Create(record); err != nil {
 			return err
 		}
 
@@ -323,19 +352,24 @@ func (s *APIService) afterRollCall(item common.RosterItem, req *api.RollCallRequ
 	})
 }
 
-func (s *APIService) processTransfer(tx *gorm.DB, src *model.Enrollment, req *api.SolveRollCallRequest) (*model.Enrollment, error) {
+func (s *APIService) processTransfer(tx *query.Query, src *model.Enrollment, req *api.SolveRollCallRequest) (*model.Enrollment, error) {
 	targetID := strings.TrimSpace(req.GetTargetEnrollmentID())
 	if targetID == "" {
 		return nil, errno.ParamErr.WithMessage("target_enrollment_id required for transfer")
 	}
-	var target model.Enrollment
-	if err := tx.Where("enrollment_id = ?", targetID).
-		First(&target).Error; err != nil {
+
+	// 查找目标选课记录
+	target, err := tx.Enrollment.WithContext(s.ctx).
+		Where(tx.Enrollment.EnrollmentID.Eq(targetID)).
+		First()
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errno.StudentNotFoundErr
 		}
 		return nil, err
 	}
+
+	// 验证
 	if target.ClassID != src.ClassID {
 		return nil, errno.ParamErr.WithMessage("target must be in the same class")
 	}
@@ -345,24 +379,32 @@ func (s *APIService) processTransfer(tx *gorm.DB, src *model.Enrollment, req *ap
 	if src.TransferRights <= 0 {
 		return nil, errno.TransferRightsNotEnough
 	}
-	if err := tx.Model(&model.Enrollment{}).
-		Where("enrollment_id = ?", src.EnrollmentID).
-		Update("transfer_rights", gorm.Expr("transfer_rights - 1")).Error; err != nil {
+
+	// 消耗源学生的转移权
+	if _, err := tx.Enrollment.WithContext(s.ctx).
+		Where(tx.Enrollment.EnrollmentID.Eq(src.EnrollmentID)).
+		Update(tx.Enrollment.TransferRights, src.TransferRights-1); err != nil {
 		return nil, err
 	}
+
+	// 更新目标学生的点名次数
 	nextCount := target.CallCount + 1
-	updates := map[string]any{
-		"call_count": nextCount,
-	}
-	if nextCount%2 == 0 {
-		updates["transfer_rights"] = gorm.Expr("transfer_rights + 1")
-	}
-	if err := tx.Model(&model.Enrollment{}).
-		Where("enrollment_id = ?", target.EnrollmentID).
-		Updates(updates).Error; err != nil {
+	if _, err := tx.Enrollment.WithContext(s.ctx).
+		Where(tx.Enrollment.EnrollmentID.Eq(target.EnrollmentID)).
+		Update(tx.Enrollment.CallCount, nextCount); err != nil {
 		return nil, err
 	}
-	return &target, nil
+
+	// 如果点名次数为偶数，增加转移权
+	if nextCount%2 == 0 {
+		if _, err := tx.Enrollment.WithContext(s.ctx).
+			Where(tx.Enrollment.EnrollmentID.Eq(target.EnrollmentID)).
+			UpdateSimple(tx.Enrollment.TransferRights.Add(1)); err != nil {
+			return nil, err
+		}
+	}
+
+	return target, nil
 }
 
 func toRosterItem(en *model.Enrollment) *common.RosterItem {
@@ -384,6 +426,7 @@ func toRosterItem(en *model.Enrollment) *common.RosterItem {
 			TotalPoints:    en.TotalPoints,
 			CallCount:      en.CallCount,
 			TransferRights: en.TransferRights,
+			SkipRights:     en.SkipRights,
 		},
 	}
 }
@@ -392,25 +435,33 @@ func calculateScoreDelta(req *api.SolveRollCallRequest) float64 {
 	base := 0.0
 	switch req.AnswerType {
 	case common.AnswerType_NORMAL:
-		base = 1
+		// 正常回答：到达课堂+1，回答问题自定义0-3分
+		base = 1.0 // 到达课堂的基础分
 		if req.CustomScore != nil {
-			base = *req.CustomScore
+			// 加上回答问题的分数（可以是0-3，也可以是-1表示不准确重复问题）
+			base += *req.CustomScore
 		}
 	case common.AnswerType_HELP:
-		base = 0.5
+		// 请求帮助：到达+1，准确重复问题+0.5
+		base = 1.5
 	case common.AnswerType_SKIP:
-		base = -1
+		// 跳过：有跳过权则不扣分（到达+1）
+		base = 1.0
 	case common.AnswerType_TRANSFER:
-		base = -0.5
+		// 转移：有转移权则不扣分（到达+1）
+		base = 1.0
 	default:
 		base = 0
 	}
 
-	switch req.EventType {
-	case common.RandomEventType_Double_Point:
-		base *= 2
-	case common.RandomEventType_CRAZY_THURSDAY:
-		base *= 1.5
+	// 只有正常回答和请求帮助才应用事件加成
+	if req.AnswerType == common.AnswerType_NORMAL || req.AnswerType == common.AnswerType_HELP {
+		switch req.EventType {
+		case common.RandomEventType_Double_Point:
+			base *= 2
+		case common.RandomEventType_CRAZY_THURSDAY:
+			base *= 1.5
+		}
 	}
 
 	return math.Round(base*100) / 100

@@ -16,44 +16,54 @@ import (
 )
 
 var (
-	Q          = new(Query)
-	Class      *class
-	Enrollment *enrollment
-	Student    *student
+	Q              = new(Query)
+	Class          *class
+	Enrollment     *enrollment
+	RollCallRecord *rollCallRecord
+	ScoreEvent     *scoreEvent
+	Student        *student
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	*Q = *Use(db, opts...)
 	Class = &Q.Class
 	Enrollment = &Q.Enrollment
+	RollCallRecord = &Q.RollCallRecord
+	ScoreEvent = &Q.ScoreEvent
 	Student = &Q.Student
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
-		db:         db,
-		Class:      newClass(db, opts...),
-		Enrollment: newEnrollment(db, opts...),
-		Student:    newStudent(db, opts...),
+		db:             db,
+		Class:          newClass(db, opts...),
+		Enrollment:     newEnrollment(db, opts...),
+		RollCallRecord: newRollCallRecord(db, opts...),
+		ScoreEvent:     newScoreEvent(db, opts...),
+		Student:        newStudent(db, opts...),
 	}
 }
 
 type Query struct {
 	db *gorm.DB
 
-	Class      class
-	Enrollment enrollment
-	Student    student
+	Class          class
+	Enrollment     enrollment
+	RollCallRecord rollCallRecord
+	ScoreEvent     scoreEvent
+	Student        student
 }
 
 func (q *Query) Available() bool { return q.db != nil }
 
 func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
-		db:         db,
-		Class:      q.Class.clone(db),
-		Enrollment: q.Enrollment.clone(db),
-		Student:    q.Student.clone(db),
+		db:             db,
+		Class:          q.Class.clone(db),
+		Enrollment:     q.Enrollment.clone(db),
+		RollCallRecord: q.RollCallRecord.clone(db),
+		ScoreEvent:     q.ScoreEvent.clone(db),
+		Student:        q.Student.clone(db),
 	}
 }
 
@@ -67,24 +77,30 @@ func (q *Query) WriteDB() *Query {
 
 func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
-		db:         db,
-		Class:      q.Class.replaceDB(db),
-		Enrollment: q.Enrollment.replaceDB(db),
-		Student:    q.Student.replaceDB(db),
+		db:             db,
+		Class:          q.Class.replaceDB(db),
+		Enrollment:     q.Enrollment.replaceDB(db),
+		RollCallRecord: q.RollCallRecord.replaceDB(db),
+		ScoreEvent:     q.ScoreEvent.replaceDB(db),
+		Student:        q.Student.replaceDB(db),
 	}
 }
 
 type queryCtx struct {
-	Class      IClassDo
-	Enrollment IEnrollmentDo
-	Student    IStudentDo
+	Class          IClassDo
+	Enrollment     IEnrollmentDo
+	RollCallRecord IRollCallRecordDo
+	ScoreEvent     IScoreEventDo
+	Student        IStudentDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
-		Class:      q.Class.WithContext(ctx),
-		Enrollment: q.Enrollment.WithContext(ctx),
-		Student:    q.Student.WithContext(ctx),
+		Class:          q.Class.WithContext(ctx),
+		Enrollment:     q.Enrollment.WithContext(ctx),
+		RollCallRecord: q.RollCallRecord.WithContext(ctx),
+		ScoreEvent:     q.ScoreEvent.WithContext(ctx),
+		Student:        q.Student.WithContext(ctx),
 	}
 }
 

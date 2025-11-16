@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"FZUSENekoCaller/biz/dal/model"
+	"FZUSENekoCaller/biz/dal/mysql"
 	"FZUSENekoCaller/biz/dal/query"
 	"FZUSENekoCaller/biz/model/api"
 	"FZUSENekoCaller/pkg/errno"
@@ -16,14 +17,19 @@ import (
 
 type ImportService struct {
 	ctx context.Context
+	db  *gorm.DB
 }
 
 func NewImportService(ctx context.Context) *ImportService {
-	return &ImportService{ctx: ctx}
+	return &ImportService{
+		ctx: ctx,
+		db:  mysql.GetDB(),
+	}
 }
 
 func (s *ImportService) ImportClassData(req *api.ImportDataRequest) error {
-	return query.Q.Transaction(func(tx *query.Query) error {
+	q := query.Use(s.db)
+	return q.Transaction(func(tx *query.Query) error {
 		classID := uuid.New().String()
 		newClass := &model.Class{
 			ClassID:   classID,

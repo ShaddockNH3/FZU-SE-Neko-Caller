@@ -4,6 +4,8 @@ package main
 
 import (
 	handler "FZUSENekoCaller/biz/handler"
+	"FZUSENekoCaller/biz/handler/api"
+
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
@@ -11,5 +13,10 @@ import (
 func customizedRegister(r *server.Hertz) {
 	r.GET("/ping", handler.Ping)
 
-	// your code ...
+	// Excel导入导出路由 (手动添加，不在thrift中定义)
+	v1 := r.Group("/v1")
+	{
+		v1.POST("/import/excel", api.ImportClassDataFromExcel)
+		v1.GET("/classes/:class_id/export", api.ExportClassRoster)
+	}
 }
