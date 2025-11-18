@@ -19,6 +19,7 @@ struct RollCallRequest{
 struct RollCallResponse{
     1: common.BaseResponse base_response,
     2: optional common.RosterItem roster_item,
+    3: optional common.RandomEventType actual_event_type = common.RandomEventType.NONE, // 实际生效的事件类型
 }
 
 // 分数变动请求

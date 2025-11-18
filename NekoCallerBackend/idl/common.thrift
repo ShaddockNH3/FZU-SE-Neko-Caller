@@ -50,6 +50,9 @@ enum RandomEventType{
     NONE = 0,
     Double_Point = 1,   // 双倍积分
     CRAZY_THURSDAY = 2, // 疯狂星期四
+    BLESSING_1024 = 3,      // 1024 程序员福报
+    SOLITUDE_PRIMES = 4, // 质数的孤独
+    LUCKY_7 = 5,        // 幸运 7 大奖
     // 后续扩展
 }
 

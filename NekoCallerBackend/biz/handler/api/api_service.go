@@ -293,7 +293,7 @@ func RollCall(ctx context.Context, c *app.RequestContext) {
 	resp := new(api.RollCallResponse)
 
 	s := service.NewAPIService(ctx)
-	currentRoster, err := s.RollCall(&req)
+	currentRoster, actualEventType, err := s.RollCall(&req)
 	if err != nil {
 		resp.BaseResponse = &common.BaseResponse{
 			Code:    constants.CodeFailed,
@@ -303,11 +303,27 @@ func RollCall(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// 构造响应消息，包含触发的随机事件信息
+	message := "点名成功"
+	switch actualEventType {
+	case common.RandomEventType_BLESSING_1024:
+		message = "点名成功 - 触发【1024福报】！Debug成功！"
+	case common.RandomEventType_SOLITUDE_PRIMES:
+		message = "点名成功 - 虽是质数，但你不孤独。"
+	case common.RandomEventType_LUCKY_7:
+		message = "点名成功 - Lucky 7！今日运势大吉！"
+	case common.RandomEventType_Double_Point:
+		message = "点名成功 - 双倍积分！"
+	case common.RandomEventType_CRAZY_THURSDAY:
+		message = "点名成功 - 疯狂星期四！"
+	}
+
 	resp.BaseResponse = &common.BaseResponse{
 		Code:    constants.CodeSuccess,
-		Message: "点名成功",
+		Message: message,
 	}
 	resp.RosterItem = &currentRoster
+	resp.ActualEventType = actualEventType // 返回实际生效的事件类型
 
 	c.JSON(consts.StatusOK, resp)
 }

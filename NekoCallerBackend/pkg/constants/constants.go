@@ -2,7 +2,7 @@ package constants
 
 const (
 	MySQLUser     = "root"
-	MySQLPassword = "12345"
+	MySQLPassword = "123456"
 	MySQLHost     = "127.0.0.1"
 	MySQLPort     = "3306"
 	MySQLDatabase = "neko_caller_db"

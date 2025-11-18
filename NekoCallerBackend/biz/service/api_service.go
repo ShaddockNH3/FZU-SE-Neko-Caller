@@ -188,6 +188,58 @@ func (s *APIService) GetClassRoster(classID string) ([]*common.RosterItem, error
 	return s.loadRoster(classID)
 }
 
+// checkEventCondition 检查事件触发条件是否满足
+func checkEventCondition(eventType common.RandomEventType, studentID string) bool {
+	now := time.Now()
+	second := now.Second()
+	minute := now.Minute()
+
+	fmt.Printf("[DEBUG checkEventCondition] eventType=%v, studentID=%s, second=%d, minute=%d\n",
+		eventType, studentID, second, minute)
+
+	switch eventType {
+	case common.RandomEventType_BLESSING_1024:
+		// 1024福报：秒数为2的幂次方 (1, 2, 4, 8, 16, 32)
+		result := isPowerOfTwo(second)
+		fmt.Printf("[DEBUG] 1024福报检查: second=%d, isPowerOfTwo=%v\n", second, result)
+		return result
+	case common.RandomEventType_SOLITUDE_PRIMES:
+		// 质数的孤独：分钟数为质数
+		result := isPrime(minute)
+		fmt.Printf("[DEBUG] 质数的孤独检查: minute=%d, isPrime=%v\n", minute, result)
+		return result
+	case common.RandomEventType_LUCKY_7:
+		// 幸运7：学号末尾为'7'
+		result := len(studentID) > 0 && studentID[len(studentID)-1] == '7'
+		fmt.Printf("[DEBUG] 幸运7检查: studentID=%s, endsWithSeven=%v\n", studentID, result)
+		return result
+	default:
+		// 其他事件无需检查条件
+		return true
+	}
+}
+
+// isPowerOfTwo 检查一个数是否为2的幂次方
+func isPowerOfTwo(n int) bool {
+	if n <= 0 {
+		return false
+	}
+	// 2的幂次方的特点是：二进制表示只有一位为1
+	return (n & (n - 1)) == 0
+}
+
+// isPrime 检查一个数是否为质数
+func isPrime(n int) bool {
+	// 0-59范围内的质数
+	primes := []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59}
+	for _, p := range primes {
+		if p == n {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *APIService) RemoveStudentFromClass(enrollmentID string) error {
 	q := query.Use(s.db)
 	_, err := q.Enrollment.WithContext(s.ctx).
@@ -196,26 +248,35 @@ func (s *APIService) RemoveStudentFromClass(enrollmentID string) error {
 	return err
 }
 
-func (s *APIService) RollCall(req *api.RollCallRequest) (common.RosterItem, error) {
+func (s *APIService) RollCall(req *api.RollCallRequest) (common.RosterItem, common.RandomEventType, error) {
 	roster, err := s.loadRoster(req.ClassID)
 	if err != nil {
-		return common.RosterItem{}, err
+		return common.RosterItem{}, common.RandomEventType_NONE, err
 	}
 
 	selected, err := utils.Roll(roster, req.Mode, req.EventType)
 	if err != nil {
-		return common.RosterItem{}, err
+		return common.RosterItem{}, common.RandomEventType_NONE, err
+	}
+
+	// 如果用户选择了事件，验证条件是否满足
+	actualEventType := req.EventType
+	if req.EventType != common.RandomEventType_NONE {
+		if !checkEventCondition(req.EventType, selected.StudentInfo.StudentID) {
+			// 条件不满足，事件不生效
+			req.EventType = common.RandomEventType_NONE
+			actualEventType = common.RandomEventType_NONE
+		}
 	}
 
 	if err := s.afterRollCall(selected, req); err != nil {
-		return common.RosterItem{}, err
+		return common.RosterItem{}, common.RandomEventType_NONE, err
 	}
 
-	return selected, nil
+	return selected, actualEventType, nil
 }
 
 func (s *APIService) SolveRollCall(req *api.SolveRollCallRequest) error {
-	delta := calculateScoreDelta(req)
 	q := query.Use(s.db)
 	return q.Transaction(func(tx *query.Query) error {
 		// 查找选课记录
@@ -228,6 +289,18 @@ func (s *APIService) SolveRollCall(req *api.SolveRollCallRequest) error {
 			}
 			return err
 		}
+
+		// 验证事件条件是否满足，如果不满足则重置为NONE
+		if req.EventType != common.RandomEventType_NONE {
+			fmt.Printf("[DEBUG] 验证事件 %v 对学号 %s\n", req.EventType, enrollment.StudentID)
+			conditionMet := checkEventCondition(req.EventType, enrollment.StudentID)
+			fmt.Printf("[DEBUG] 条件满足: %v\n", conditionMet)
+			if !conditionMet {
+				fmt.Printf("[DEBUG] 条件不满足，重置事件为NONE\n")
+				req.EventType = common.RandomEventType_NONE
+			}
+		} // 计算积分变化
+		delta := calculateScoreDelta(req)
 
 		var transferTarget *model.Enrollment
 		if req.AnswerType == common.AnswerType_TRANSFER {
@@ -467,17 +540,25 @@ func toRosterItem(en *model.Enrollment) *common.RosterItem {
 
 func calculateScoreDelta(req *api.SolveRollCallRequest) float64 {
 	base := 0.0
+	isCorrect := false // 标记是否回答正确
+
 	switch req.AnswerType {
 	case common.AnswerType_NORMAL:
 		// 正常回答：到达课堂+1，回答问题自定义0-3分
 		base = 1.0 // 到达课堂的基础分
 		if req.CustomScore != nil {
 			// 加上回答问题的分数（可以是0-3，也可以是-1表示不准确重复问题）
-			base += *req.CustomScore
+			customScore := *req.CustomScore
+			base += customScore
+			// 如果自定义分数大于等于0，视为回答正确
+			if customScore >= 0 {
+				isCorrect = true
+			}
 		}
 	case common.AnswerType_HELP:
 		// 请求帮助：到达+1，准确重复问题+0.5
 		base = 1.5
+		isCorrect = true
 	case common.AnswerType_SKIP:
 		// 跳过：有跳过权则不扣分（到达+1）
 		base = 1.0
@@ -488,17 +569,42 @@ func calculateScoreDelta(req *api.SolveRollCallRequest) float64 {
 		base = 0
 	}
 
-	// 只有正常回答和请求帮助才应用事件加成
-	if req.AnswerType == common.AnswerType_NORMAL || req.AnswerType == common.AnswerType_HELP {
-		switch req.EventType {
-		case common.RandomEventType_Double_Point:
+	// 处理新增的随机事件
+	switch req.EventType {
+	case common.RandomEventType_BLESSING_1024:
+		// 1024 程序员福报
+		if req.AnswerType == common.AnswerType_NORMAL && req.CustomScore != nil {
+			if *req.CustomScore > 0 {
+				// 回答正确：积分调整为 +1.024 (不是增加,是直接设置为1.024)
+				base = 1.024
+			} else if *req.CustomScore < 0 {
+				// 回答错误：免除扣分,保留到达课堂的1分
+				base = 1.0
+			}
+		}
+	case common.RandomEventType_SOLITUDE_PRIMES:
+		// 质数的孤独：回答正确额外增加 +0.37 分
+		if isCorrect {
+			base += 0.37
+		}
+	case common.RandomEventType_LUCKY_7:
+		// 幸运 7 大奖：回答错误不扣分(幸运闪避)
+		if req.AnswerType == common.AnswerType_NORMAL && req.CustomScore != nil && *req.CustomScore < 0 {
+			base = 1.0 // 触发幸运闪避，保留到达课堂的1分，免除错误扣分
+		}
+	case common.RandomEventType_Double_Point:
+		// 只有正常回答和请求帮助才应用事件加成
+		if req.AnswerType == common.AnswerType_NORMAL || req.AnswerType == common.AnswerType_HELP {
 			base *= 2
-		case common.RandomEventType_CRAZY_THURSDAY:
+		}
+	case common.RandomEventType_CRAZY_THURSDAY:
+		// 只有正常回答和请求帮助才应用事件加成
+		if req.AnswerType == common.AnswerType_NORMAL || req.AnswerType == common.AnswerType_HELP {
 			base *= 1.5
 		}
 	}
 
-	return math.Round(base*100) / 100
+	return math.Round(base*1000) / 1000
 }
 
 // LeaderboardItem 排行榜项
