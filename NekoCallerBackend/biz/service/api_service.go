@@ -544,27 +544,25 @@ func calculateScoreDelta(req *api.SolveRollCallRequest) float64 {
 
 	switch req.AnswerType {
 	case common.AnswerType_NORMAL:
-		// 正常回答：到达课堂+1，回答问题自定义0-3分
-		base = 1.0 // 到达课堂的基础分
+		// 正常回答：直接使用自定义分数（-1到3分）
 		if req.CustomScore != nil {
-			// 加上回答问题的分数（可以是0-3，也可以是-1表示不准确重复问题）
 			customScore := *req.CustomScore
-			base += customScore
+			base = customScore
 			// 如果自定义分数大于等于0，视为回答正确
 			if customScore >= 0 {
 				isCorrect = true
 			}
 		}
 	case common.AnswerType_HELP:
-		// 请求帮助：到达+1，准确重复问题+0.5
-		base = 1.5
+		// 请求帮助：准确重复问题+0.5
+		base = 0.5
 		isCorrect = true
 	case common.AnswerType_SKIP:
-		// 跳过：有跳过权则不扣分（到达+1）
-		base = 1.0
+		// 跳过：有跳过权则不扣分
+		base = 0
 	case common.AnswerType_TRANSFER:
-		// 转移：有转移权则不扣分（到达+1）
-		base = 1.0
+		// 转移：有转移权则不扣分
+		base = 0
 	default:
 		base = 0
 	}
@@ -575,11 +573,11 @@ func calculateScoreDelta(req *api.SolveRollCallRequest) float64 {
 		// 1024 程序员福报
 		if req.AnswerType == common.AnswerType_NORMAL && req.CustomScore != nil {
 			if *req.CustomScore > 0 {
-				// 回答正确：积分调整为 +1.024 (不是增加,是直接设置为1.024)
+				// 回答正确：积分固定为 +1.024
 				base = 1.024
 			} else if *req.CustomScore < 0 {
-				// 回答错误：免除扣分,保留到达课堂的1分
-				base = 1.0
+				// 回答错误：免除扣分，得0分
+				base = 0
 			}
 		}
 	case common.RandomEventType_SOLITUDE_PRIMES:
@@ -590,7 +588,7 @@ func calculateScoreDelta(req *api.SolveRollCallRequest) float64 {
 	case common.RandomEventType_LUCKY_7:
 		// 幸运 7 大奖：回答错误不扣分(幸运闪避)
 		if req.AnswerType == common.AnswerType_NORMAL && req.CustomScore != nil && *req.CustomScore < 0 {
-			base = 1.0 // 触发幸运闪避，保留到达课堂的1分，免除错误扣分
+			base = 0 // 触发幸运闪避，免除错误扣分，得0分
 		}
 	case common.RandomEventType_Double_Point:
 		// 只有正常回答和请求帮助才应用事件加成

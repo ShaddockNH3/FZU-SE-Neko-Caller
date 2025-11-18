@@ -197,16 +197,30 @@
             <el-form-item label="回答分数" v-if="answerType === 0">
               <el-slider v-model="customScore" :min="-1" :max="3" :step="0.5" show-stops :marks="{ '-1': '-1', '-0.5': '-0.5', 0: '0', 0.5: '0.5', 1: '1', 1.5: '1.5', 2: '2', 2.5: '2.5', 3: '3' }" />
               <div style="margin-top: 10px;">
-                <el-tag v-if="actualEventType === 1" type="warning">双倍后：{{ (customScore + 1) * 2 }}</el-tag>
-                <el-tag v-if="actualEventType === 2" type="danger" style="margin-left: 10px;">疯四后：{{ ((customScore + 1) * 1.5).toFixed(1) }}</el-tag>
-                <el-tag v-if="actualEventType === 3" type="success" style="margin-left: 10px;">
-                  1024福报：{{ customScore > 0 ? '1.024' : customScore < 0 ? '1.0(免扣分)' : (customScore + 1).toFixed(1) }}
+                <!-- 无事件或事件未触发 -->
+                <el-tag v-if="actualEventType === 0" type="info">
+                  {{ eventType === 0 ? '无事件' : '未触发' }}：{{ customScore.toFixed(1) }}
                 </el-tag>
-                <el-tag v-if="actualEventType === 4" type="primary" style="margin-left: 10px;">
-                  质数孤独：{{ customScore >= 0 ? ((customScore + 1) + 0.37).toFixed(2) : (customScore + 1).toFixed(1) }}
+                
+                <!-- 双倍积分：回答分 × 2 -->
+                <el-tag v-if="actualEventType === 1" type="warning">双倍后：{{ (customScore * 2).toFixed(1) }}</el-tag>
+                
+                <!-- 疯狂星期四：回答分 × 1.5 -->
+                <el-tag v-if="actualEventType === 2" type="danger">疯四后：{{ (customScore * 1.5).toFixed(1) }}</el-tag>
+                
+                <!-- 1024福报：回答正确固定1.024，回答错误免扣分得0分 -->
+                <el-tag v-if="actualEventType === 3" type="success">
+                  1024福报：{{ customScore > 0 ? '1.024' : '0' }}{{ customScore < 0 ? '(免扣分)' : '' }}
                 </el-tag>
-                <el-tag v-if="actualEventType === 5" color="#f56c6c" style="margin-left: 10px;">
-                  幸运7：{{ customScore < 0 ? '1.0(免扣分)' : (customScore + 1).toFixed(1) }}
+                
+                <!-- 质数的孤独：回答正确额外+0.37，回答错误正常扣分 -->
+                <el-tag v-if="actualEventType === 4" type="primary">
+                  质数孤独：{{ customScore >= 0 ? (customScore + 0.37).toFixed(2) : customScore.toFixed(1) }}
+                </el-tag>
+                
+                <!-- 幸运7：回答错误免扣分得0分，回答正确正常加分 -->
+                <el-tag v-if="actualEventType === 5" color="#f56c6c">
+                  幸运7：{{ customScore < 0 ? '0(免扣分)' : customScore.toFixed(1) }}
                 </el-tag>
               </div>
             </el-form-item>
@@ -400,58 +414,57 @@ const submitSolve = async () => {
 
     const result = await rollCallAPI.solve(payload)
     
-    // 使用后端返回的实际事件类型来计算积分
-    const actualEvent = result.data?.actual_event_type ?? 0
+    // 使用点名时获得的实际事件类型（已经由后端验证过）
+    const actualEvent = actualEventType.value
     
-    // 计算积分变化（根据新规则）
+    // 计算积分变化（根据后端规则，无基础分）
     let scoreChange = 0
     if (answerType.value === 0) {
-      // 正常回答：到达+1 + 回答得分（-1到3）
-      scoreChange = 1.0 + customScore.value
+      // 正常回答：直接使用回答分数
+      scoreChange = customScore.value
       
-      // 应用特殊事件规则（使用实际触发的事件类型）
-      if (actualEvent === 3) {
-        // 1024福报
-        if (customScore.value > 0) {
-          scoreChange = 1.024 // 回答正确固定为1.024
-        } else if (customScore.value < 0) {
-          scoreChange = 1.0 // 回答错误免扣分
-        }
+      // 应用事件规则
+      if (actualEvent === 1) {
+        // 双倍积分：翻倍
+        scoreChange *= 2
+      } else if (actualEvent === 2) {
+        // 疯狂星期四：1.5倍
+        scoreChange *= 1.5
+      } else if (actualEvent === 3) {
+        // 1024福报：回答正确固定1.024，其他情况固定0
+        scoreChange = customScore.value > 0 ? 1.024 : 0
       } else if (actualEvent === 4) {
         // 质数的孤独：回答正确额外+0.37
         if (customScore.value >= 0) {
           scoreChange += 0.37
         }
       } else if (actualEvent === 5) {
-        // 幸运7：回答错误免扣分
+        // 幸运7：回答错误免扣分固定0
         if (customScore.value < 0) {
-          scoreChange = 1.0
+          scoreChange = 0
         }
-      } else if (actualEvent === 1) {
+      }
+    } else if (answerType.value === 1) {
+      // 请求帮助：0.5分
+      scoreChange = 0.5
+      
+      // 应用事件规则（请求帮助也能触发事件）
+      if (actualEvent === 1) {
         // 双倍积分
         scoreChange *= 2
       } else if (actualEvent === 2) {
         // 疯狂星期四
         scoreChange *= 1.5
-      }
-    } else if (answerType.value === 1) {
-      // 请求帮助：到达+1 + 准确重复+0.5
-      scoreChange = 1.5
-      
-      // 质数的孤独对帮助也生效
-      if (eventType.value === 4) {
+      } else if (actualEvent === 4) {
+        // 质数的孤独：请求帮助视为回答正确，额外+0.37
         scoreChange += 0.37
-      } else if (eventType.value === 1) {
-        scoreChange *= 2
-      } else if (eventType.value === 2) {
-        scoreChange *= 1.5
       }
     } else if (answerType.value === 2) {
-      // 跳过：到达+1
-      scoreChange = 1.0
+      // 跳过：0分
+      scoreChange = 0
     } else if (answerType.value === 3) {
-      // 转移：到达+1
-      scoreChange = 1.0
+      // 转移：0分
+      scoreChange = 0
     }
     
     // 添加到历史记录
