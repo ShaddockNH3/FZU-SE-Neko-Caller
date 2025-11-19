@@ -35,3 +35,6 @@ _testmain.go
 *.local.yml
 dumped_hertz_remote_config.json
 NekoCallerFrountend/node_modules
+
+blog.md
+pic/
