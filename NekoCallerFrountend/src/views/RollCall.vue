@@ -194,9 +194,11 @@
               </div>
             </el-form-item>
 
-            <el-form-item label="回答分数" v-if="answerType === 0">
+            <el-form-item label="回答分数" v-if="answerType === 0 || answerType === 3">
               <el-slider v-model="customScore" :min="-1" :max="3" :step="0.5" show-stops :marks="{ '-1': '-1', '-0.5': '-0.5', 0: '0', 0.5: '0.5', 1: '1', 1.5: '1.5', 2: '2', 2.5: '2.5', 3: '3' }" />
               <div style="margin-top: 10px;">
+                <el-text v-if="answerType === 3" type="primary" size="small" style="margin-bottom: 5px;">为转移目标选择积分</el-text>
+                
                 <!-- 无事件或事件未触发 -->
                 <el-tag v-if="actualEventType === 0" type="info">
                   {{ eventType === 0 ? '无事件' : '未触发' }}：{{ customScore.toFixed(1) }}
@@ -410,6 +412,8 @@ const submitSolve = async () => {
         return
       }
       payload.target_enrollment_id = targetStudent.enrollment_info.enrollment_id
+      // 转移权也需要传递积分
+      payload.custom_score = customScore.value
     }
 
     const result = await rollCallAPI.solve(payload)

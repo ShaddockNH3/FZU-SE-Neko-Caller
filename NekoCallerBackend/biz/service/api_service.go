@@ -511,6 +511,61 @@ func (s *APIService) processTransfer(tx *query.Query, src *model.Enrollment, req
 		}
 	}
 
+	// 计算目标学生的积分变化（转移目标也能获得积分）
+	targetDelta := 0.0
+	if req.CustomScore != nil {
+		// 使用custom_score为目标学生计算积分
+		targetDelta = *req.CustomScore
+
+		// 应用随机事件加成
+		switch req.EventType {
+		case common.RandomEventType_BLESSING_1024:
+			if targetDelta > 0 {
+				targetDelta = 1.024
+			} else if targetDelta < 0 {
+				targetDelta = 0
+			}
+		case common.RandomEventType_SOLITUDE_PRIMES:
+			if targetDelta >= 0 {
+				targetDelta += 0.37
+			}
+		case common.RandomEventType_LUCKY_7:
+			if targetDelta < 0 {
+				targetDelta = 0
+			}
+		case common.RandomEventType_Double_Point:
+			targetDelta *= 2
+		case common.RandomEventType_CRAZY_THURSDAY:
+			targetDelta *= 1.5
+		}
+
+		targetDelta = math.Round(targetDelta*1000) / 1000
+	}
+
+	// 更新目标学生的积分
+	if targetDelta != 0 {
+		if _, err := tx.Enrollment.WithContext(s.ctx).
+			Where(tx.Enrollment.EnrollmentID.Eq(target.EnrollmentID)).
+			Update(tx.Enrollment.TotalPoints, target.TotalPoints+targetDelta); err != nil {
+			return nil, err
+		}
+
+		// 记录目标学生的积分事件
+		event := &model.ScoreEvent{
+			EventID:      uuid.NewString(),
+			EnrollmentID: target.EnrollmentID,
+			StudentID:    target.StudentID,
+			ClassID:      target.ClassID,
+			Delta:        targetDelta,
+			Reason:       fmt.Sprintf("transferred_from=%s,answer_score=%.1f", src.StudentID, *req.CustomScore),
+			EventType:    int32(req.EventType),
+			Metadata:     datatypes.JSONMap{"source_enrollment_id": src.EnrollmentID},
+		}
+		if err := tx.ScoreEvent.WithContext(s.ctx).Create(event); err != nil {
+			return nil, err
+		}
+	}
+
 	return target, nil
 }
 
