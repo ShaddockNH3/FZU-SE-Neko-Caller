@@ -53,8 +53,8 @@ npm run dev
 
 ## 📝 开发团队
 
-- [ShaddockNH3](https://github.com/ShaddockNH3) - 郑伟 (022302217) - 后端开发
-- [nieie](https://github.com/nieie) - 周晨烁 (052306116) - 前端开发
+- [ShaddockNH3](https://github.com/ShaddockNH3)
+- [nieie](https://github.com/nieie)
 
 ## 📄 许可证
 
