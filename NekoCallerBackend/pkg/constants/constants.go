@@ -1,9 +1,9 @@
 package constants
 
 const (
-	MySQLUser     = "catgirl"
-	MySQLPassword = "shenmidazhi"
-	MySQLHost     = "db4free.net"
+	MySQLUser     = "root"
+	MySQLPassword = "123456"
+	MySQLHost     = "localhost"
 	MySQLPort     = "3306"
 	MySQLDatabase = "neko_caller_db"
 )

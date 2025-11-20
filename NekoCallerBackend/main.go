@@ -4,6 +4,8 @@ package main
 
 import (
 	"log"
+	"net/http"
+	_ "net/http/pprof" // 导入pprof用于性能分析
 
 	"FZUSENekoCaller/biz/dal/mysql"
 
@@ -11,9 +13,21 @@ import (
 )
 
 func main() {
+	// 启动pprof性能分析服务（独立端口）
+	go func() {
+		log.Println("🔍 pprof性能分析服务启动在 http://localhost:6060/debug/pprof/")
+		log.Println("📊 可用的分析端点：")
+		log.Println("   - CPU Profile: http://localhost:6060/debug/pprof/profile?seconds=30")
+		log.Println("   - Heap Profile: http://localhost:6060/debug/pprof/heap")
+		log.Println("   - Goroutine: http://localhost:6060/debug/pprof/goroutine")
+		if err := http.ListenAndServe(":6060", nil); err != nil {
+			log.Printf("❌ pprof服务启动失败: %v", err)
+		}
+	}()
+
 	// 初始化数据库
 	mysql.Init()
-	log.Println("数据库初始化成功")
+	log.Println("✅ 数据库初始化成功")
 
 	h := server.Default()
 
