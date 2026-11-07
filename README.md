@@ -59,7 +59,10 @@ NekoCallerBackend/
 ├── biz/dal/              GORM 生成代码与连接
 └── pkg/errno/            统一错误码
 NekoCallerFrountend/src/
-├── views/RollCall.vue    点名主界面
+├── constants/events.js   随机事件文案与积分规则（一份，预览和结算共用）
+├── composables/          点名页状态与用例（选班 / 点名 / 结算 / 重置 / 历史）
+├── components/           配置面板、事件选择、学生卡片、结算表单、历史
+├── views/                页面：点名 91 行，其余为班级/学生/排行
 └── api/ stores/          请求与状态
 ```
 

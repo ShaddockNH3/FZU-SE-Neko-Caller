@@ -36,6 +36,27 @@ service 只留三个适配点：包级 `picker`、`rollcall.ClockAt(time.Now())`
 
 事件条件判断的是"第几秒 / 第几分"。原实现读 `time.Now()`，只能等真实时间凑巧。抽成 `Clock` 之后，"16 秒满足 1024 福报、17 秒不满足"这种断言一行就能写。
 
+## 前端
+
+`RollCall.vue` 原来 507 行：模板 248 行、脚本 247 行。最要命的是积分规则写了三遍——
+后端 `score.go`、模板里的五个预览标签、`submitSolve` 里算历史记录的那段 if/else。
+
+拆完：
+
+| 文件 | 职责 | 行数 |
+| --- | --- | --- |
+| `views/RollCall.vue` | 两栏版面 + 连事件 | 91 |
+| `composables/useRollCall.js` | 全部状态与用例 | 250 |
+| `components/RollCallConfig.vue` | 班级、模式、事件、开始/重置 | 130 |
+| `components/EventSelector.vue` | 事件单选与说明气泡 | 50 |
+| `components/StudentResultCard.vue` | 学生信息 + 事件标签 | 60 |
+| `components/SolveForm.vue` | 回答类型、分数滑块、预览、转移目标 | 150 |
+| `components/RollCallHistory.vue` | 历史时间线 | 45 |
+
+积分规则收进 `constants/events.js` 的 `scoreDelta()`，模板预览和本地历史都调它；五个 `el-tooltip` 里的说明文字变成 `EVENT_OPTIONS` 的数据，加事件只改数组。
+
+`scoreDelta` 的 16 种组合我逐条对过后端 `ScoreDelta` 的期望值（正常/求助 × 无事件/双倍/疯四/1024/质数/幸运7/负数分），一致。
+
 ## 代价
 
 - `pkg/utils` 包被删掉，逻辑搬到 `biz/domain/rollcall`，引用路径变了。
