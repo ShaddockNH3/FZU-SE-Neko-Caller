@@ -1,49 +1,8 @@
 <template>
   <div class="home-container">
     <el-row :gutter="20">
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <el-icon class="stat-icon" :size="40" color="#409EFF"><School /></el-icon>
-            <div class="stat-info">
-              <div class="stat-label">班级总数</div>
-              <div class="stat-value">{{ stats.totalClasses }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <el-icon class="stat-icon" :size="40" color="#67C23A"><User /></el-icon>
-            <div class="stat-info">
-              <div class="stat-label">学生总数</div>
-              <div class="stat-value">{{ stats.totalStudents }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <el-icon class="stat-icon" :size="40" color="#E6A23C"><Promotion /></el-icon>
-            <div class="stat-info">
-              <div class="stat-label">今日点名</div>
-              <div class="stat-value">{{ stats.todayCalls }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <el-icon class="stat-icon" :size="40" color="#F56C6C"><TrophyBase /></el-icon>
-            <div class="stat-info">
-              <div class="stat-label">累计点名</div>
-              <div class="stat-value">{{ stats.totalCalls }}</div>
-            </div>
-          </div>
-        </el-card>
+      <el-col v-for="card in statCards" :key="card.label" :span="6">
+        <stat-card v-bind="card" />
       </el-col>
     </el-row>
 
@@ -128,8 +87,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { Promotion, School, TrophyBase, User } from '@element-plus/icons-vue'
+import StatCard from '@/components/StatCard.vue'
 import { classAPI, studentAPI } from '@/api'
 import { ElMessage } from 'element-plus'
 
@@ -143,6 +104,14 @@ const stats = ref({
 })
 
 const recentClasses = ref([])
+
+// 指标卡数据：图标、文案、取值、颜色
+const statCards = computed(() => [
+  { label: '班级总数', value: stats.value.totalClasses, icon: School, color: '#409EFF' },
+  { label: '学生总数', value: stats.value.totalStudents, icon: User, color: '#67C23A' },
+  { label: '今日点名', value: stats.value.todayCalls, icon: Promotion, color: '#E6A23C' },
+  { label: '累计点名', value: stats.value.totalCalls, icon: TrophyBase, color: '#F56C6C' }
+])
 
 const loadData = async () => {
   try {
@@ -177,42 +146,6 @@ onMounted(() => {
 <style scoped>
 .home-container {
   padding: 20px;
-}
-
-.stat-card {
-  cursor: pointer;
-  transition: transform 0.3s;
-}
-
-.stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.stat-content {
-  display: flex;
-  align-items: center;
-  padding: 10px;
-}
-
-.stat-icon {
-  margin-right: 20px;
-}
-
-.stat-info {
-  flex: 1;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #909399;
-  margin-bottom: 5px;
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: bold;
-  color: #303133;
 }
 
 .card-header {

@@ -52,6 +52,9 @@ service 只留三个适配点：包级 `picker`、`rollcall.ClockAt(time.Now())`
 | `components/StudentResultCard.vue` | 学生信息 + 事件标签 | 60 |
 | `components/SolveForm.vue` | 回答类型、分数滑块、预览、转移目标 | 150 |
 | `components/RollCallHistory.vue` | 历史时间线 | 45 |
+| `components/StatCard.vue` | 首页四张指标卡（原来每张写一遍） | 70 |
+
+首页 245 行 → 200 行，四张指标卡收成一个组件 + 一个 `statCards` 数组。
 
 积分规则收进 `constants/events.js` 的 `scoreDelta()`，模板预览和本地历史都调它；五个 `el-tooltip` 里的说明文字变成 `EVENT_OPTIONS` 的数据，加事件只改数组。
 
