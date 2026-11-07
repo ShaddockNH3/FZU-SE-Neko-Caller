@@ -12,15 +12,18 @@ import (
 	"FZUSENekoCaller/biz/dal/model"
 	"FZUSENekoCaller/biz/dal/mysql"
 	"FZUSENekoCaller/biz/dal/query"
+	"FZUSENekoCaller/biz/domain/rollcall"
 	"FZUSENekoCaller/biz/model/api"
 	"FZUSENekoCaller/biz/model/common"
 	"FZUSENekoCaller/pkg/errno"
-	"FZUSENekoCaller/pkg/utils"
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
+
+// 进程级随机源。点名手感要求"同一次会话里随机分布稳定"，所以不每次 new。
+var picker = rollcall.NewPicker(time.Now().UnixNano())
 
 type APIService struct {
 	ctx context.Context
@@ -188,58 +191,6 @@ func (s *APIService) GetClassRoster(classID string) ([]*common.RosterItem, error
 	return s.loadRoster(classID)
 }
 
-// checkEventCondition 检查事件触发条件是否满足
-func checkEventCondition(eventType common.RandomEventType, studentID string) bool {
-	now := time.Now()
-	second := now.Second()
-	minute := now.Minute()
-
-	fmt.Printf("[DEBUG checkEventCondition] eventType=%v, studentID=%s, second=%d, minute=%d\n",
-		eventType, studentID, second, minute)
-
-	switch eventType {
-	case common.RandomEventType_BLESSING_1024:
-		// 1024福报：秒数为2的幂次方 (1, 2, 4, 8, 16, 32)
-		result := isPowerOfTwo(second)
-		fmt.Printf("[DEBUG] 1024福报检查: second=%d, isPowerOfTwo=%v\n", second, result)
-		return result
-	case common.RandomEventType_SOLITUDE_PRIMES:
-		// 质数的孤独：分钟数为质数
-		result := isPrime(minute)
-		fmt.Printf("[DEBUG] 质数的孤独检查: minute=%d, isPrime=%v\n", minute, result)
-		return result
-	case common.RandomEventType_LUCKY_7:
-		// 幸运7：学号末尾为'7'
-		result := len(studentID) > 0 && studentID[len(studentID)-1] == '7'
-		fmt.Printf("[DEBUG] 幸运7检查: studentID=%s, endsWithSeven=%v\n", studentID, result)
-		return result
-	default:
-		// 其他事件无需检查条件
-		return true
-	}
-}
-
-// isPowerOfTwo 检查一个数是否为2的幂次方
-func isPowerOfTwo(n int) bool {
-	if n <= 0 {
-		return false
-	}
-	// 2的幂次方的特点是：二进制表示只有一位为1
-	return (n & (n - 1)) == 0
-}
-
-// isPrime 检查一个数是否为质数
-func isPrime(n int) bool {
-	// 0-59范围内的质数
-	primes := []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59}
-	for _, p := range primes {
-		if p == n {
-			return true
-		}
-	}
-	return false
-}
-
 func (s *APIService) RemoveStudentFromClass(enrollmentID string) error {
 	q := query.Use(s.db)
 	_, err := q.Enrollment.WithContext(s.ctx).
@@ -254,7 +205,7 @@ func (s *APIService) RollCall(req *api.RollCallRequest) (common.RosterItem, comm
 		return common.RosterItem{}, common.RandomEventType_NONE, err
 	}
 
-	selected, err := utils.Roll(roster, req.Mode, req.EventType)
+	selected, err := picker.Pick(roster, req.Mode, req.EventType)
 	if err != nil {
 		return common.RosterItem{}, common.RandomEventType_NONE, err
 	}
@@ -262,7 +213,7 @@ func (s *APIService) RollCall(req *api.RollCallRequest) (common.RosterItem, comm
 	// 如果用户选择了事件，验证条件是否满足
 	actualEventType := req.EventType
 	if req.EventType != common.RandomEventType_NONE {
-		if !checkEventCondition(req.EventType, selected.StudentInfo.StudentID) {
+		if !rollcall.EventMet(req.EventType, selected.StudentInfo.StudentID, rollcall.ClockAt(time.Now())) {
 			// 条件不满足，事件不生效
 			req.EventType = common.RandomEventType_NONE
 			actualEventType = common.RandomEventType_NONE
@@ -293,14 +244,14 @@ func (s *APIService) SolveRollCall(req *api.SolveRollCallRequest) error {
 		// 验证事件条件是否满足，如果不满足则重置为NONE
 		if req.EventType != common.RandomEventType_NONE {
 			fmt.Printf("[DEBUG] 验证事件 %v 对学号 %s\n", req.EventType, enrollment.StudentID)
-			conditionMet := checkEventCondition(req.EventType, enrollment.StudentID)
+			conditionMet := rollcall.EventMet(req.EventType, enrollment.StudentID, rollcall.ClockAt(time.Now()))
 			fmt.Printf("[DEBUG] 条件满足: %v\n", conditionMet)
 			if !conditionMet {
 				fmt.Printf("[DEBUG] 条件不满足，重置事件为NONE\n")
 				req.EventType = common.RandomEventType_NONE
 			}
 		} // 计算积分变化
-		delta := calculateScoreDelta(req)
+		delta := rollcall.ScoreDelta(req.AnswerType, req.EventType, req.CustomScore)
 
 		var transferTarget *model.Enrollment
 		if req.AnswerType == common.AnswerType_TRANSFER {
@@ -503,7 +454,7 @@ func (s *APIService) processTransfer(tx *query.Query, src *model.Enrollment, req
 	}
 
 	// 如果点名次数为偶数，增加转移权
-	if nextCount%2 == 0 {
+	if rollcall.GrantsTransferRight(nextCount) {
 		if _, err := tx.Enrollment.WithContext(s.ctx).
 			Where(tx.Enrollment.EnrollmentID.Eq(target.EnrollmentID)).
 			UpdateSimple(tx.Enrollment.TransferRights.Add(1)); err != nil {
@@ -591,73 +542,6 @@ func toRosterItem(en *model.Enrollment) *common.RosterItem {
 			SkipRights:     en.SkipRights,
 		},
 	}
-}
-
-func calculateScoreDelta(req *api.SolveRollCallRequest) float64 {
-	base := 0.0
-	isCorrect := false // 标记是否回答正确
-
-	switch req.AnswerType {
-	case common.AnswerType_NORMAL:
-		// 正常回答：直接使用自定义分数（-1到3分）
-		if req.CustomScore != nil {
-			customScore := *req.CustomScore
-			base = customScore
-			// 如果自定义分数大于等于0，视为回答正确
-			if customScore >= 0 {
-				isCorrect = true
-			}
-		}
-	case common.AnswerType_HELP:
-		// 请求帮助：准确重复问题+0.5
-		base = 0.5
-		isCorrect = true
-	case common.AnswerType_SKIP:
-		// 跳过：有跳过权则不扣分
-		base = 0
-	case common.AnswerType_TRANSFER:
-		// 转移：有转移权则不扣分
-		base = 0
-	default:
-		base = 0
-	}
-
-	// 处理新增的随机事件
-	switch req.EventType {
-	case common.RandomEventType_BLESSING_1024:
-		// 1024 程序员福报
-		if req.AnswerType == common.AnswerType_NORMAL && req.CustomScore != nil {
-			if *req.CustomScore > 0 {
-				// 回答正确：积分固定为 +1.024
-				base = 1.024
-			} else if *req.CustomScore < 0 {
-				// 回答错误：免除扣分，得0分
-				base = 0
-			}
-		}
-	case common.RandomEventType_SOLITUDE_PRIMES:
-		// 质数的孤独：回答正确额外增加 +0.37 分
-		if isCorrect {
-			base += 0.37
-		}
-	case common.RandomEventType_LUCKY_7:
-		// 幸运 7 大奖：回答错误不扣分(幸运闪避)
-		if req.AnswerType == common.AnswerType_NORMAL && req.CustomScore != nil && *req.CustomScore < 0 {
-			base = 0 // 触发幸运闪避，免除错误扣分，得0分
-		}
-	case common.RandomEventType_Double_Point:
-		// 只有正常回答和请求帮助才应用事件加成
-		if req.AnswerType == common.AnswerType_NORMAL || req.AnswerType == common.AnswerType_HELP {
-			base *= 2
-		}
-	case common.RandomEventType_CRAZY_THURSDAY:
-		// 只有正常回答和请求帮助才应用事件加成
-		if req.AnswerType == common.AnswerType_NORMAL || req.AnswerType == common.AnswerType_HELP {
-			base *= 1.5
-		}
-	}
-
-	return math.Round(base*1000) / 1000
 }
 
 // LeaderboardItem 排行榜项

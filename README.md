@@ -1,61 +1,91 @@
-# Neko Caller - 课堂随机点名系统
+# FZU-SE-Neko-Caller
 
-> 福州大学软件工程结对编程作业
+福州大学软件工程结对编程作业：课堂随机点名系统，Go（Hertz + GORM）+ Vue 3，支持四种点名模式、积分管理和几个恶趣味随机事件。
 
-一个支持多种点名模式、积分管理和趣味事件的智能课堂点名系统。
-
-## ✨ 功能特性
-
-- 🎲 **多种点名模式** - 加权随机、顺序、逆序、低分优先
-- 📊 **积分管理** - 自动计算积分，支持自定义分数
-- 🎉 **趣味事件** - 双倍积分、疯狂星期四、1024福报等
-- 🔄 **点名转移权** - 每被点名2次获得1次转移机会
-- 📥 **数据导入导出** - 支持Excel格式批量导入学生名单
-- 📈 **排行榜统计** - 查看班级积分排名和数据分析
-
-## 🚀 快速开始
-
-### 后端启动
+## 快速开始
 
 ```bash
-cd NekoCallerBackend
-go mod tidy
-go run main.go
+cd NekoCallerBackend && go run main.go          # :8888，首次启动自动建表
+cd NekoCallerFrountend && npm install && npm run dev
 ```
 
-服务运行在 `http://localhost:8888`
+需要 MySQL，连接信息在 `NekoCallerBackend/biz/dal/mysql/mysql.go`。前端目录名拼错成 `Frountend` 是历史遗留，没改。
 
-### 前端启动
+## 接口
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/v1/import/class-data` | 上传 Excel 导入班级与学生 |
+| GET | `/v1/classes` | 班级列表（含学生 ID） |
+| GET | `/v1/classes/:class_id` | 单个班级 |
+| DELETE | `/v1/classes/:class_id` | 删班级并清选课记录 |
+| GET | `/v1/roster?class_id=` | 点名名册（学生 + 选课数据） |
+| GET | `/v1/classes/:class_id/leaderboard` | 积分排行 |
+| GET | `/v1/classes/:class_id/stats` | 班级统计 |
+| GET | `/v1/students`、`/v1/students/:id` | 学生列表与详情 |
+| DELETE | `/v1/students/:student_id` | 删学生 |
+| DELETE | `/v1/enrollments/:enrollment_id` | 把学生踢出班级 |
+| POST | `/v1/roll-calls` | 点一个人名，返回选中学生与实际生效的事件 |
+| POST | `/v1/roll-calls/solve` | 提交作答，结算积分（支持跳过、转移） |
+| POST | `/v1/roll-calls/reset` | 重置班级点名次数与积分 |
+
+## 规则
+
+点名模式和随机事件的规则都在 `biz/domain/rollcall`，纯函数，有单测。
+
+| 模式 | 规则 |
+| --- | --- |
+| 加权随机 | 权重 `1 / (1 + 积分×0.4 + 被点次数×0.2)`，分高被点多的更难中 |
+| 顺序 / 逆序 | 按名册顺序取头/尾 |
+| 低分优先 | 在积分最低的三分之一里随机，避免总是同一个人 |
+
+| 事件 | 触发条件 | 结算 |
+| --- | --- | --- |
+| 双倍积分 | 无条件 | 正常作答或求助，得分 ×2 |
+| 疯狂星期四 | 无条件 | 同上，×1.5；点人时积分是 50 的因数权重 ×1.25 |
+| 1024 福报 | 当前秒数是 2 的幂 | 答对固定 +1.024，答错免扣 |
+| 质数的孤独 | 当前分钟数是质数 | 答对额外 +0.37 |
+| 幸运 7 | 学号末位是 7 | 答错免扣 |
+
+每被点名两次多一次转移权，转移权可以把这次作答转给别人（对方照常计分）。
+
+## 项目结构
+
+```
+NekoCallerBackend/
+├── biz/domain/rollcall/  点名、事件条件、积分结算（纯函数，有单测）
+├── biz/service/          用例：读写库 + 调用领域规则
+├── biz/handler/          HTTP 入口，Excel 导入
+├── biz/dal/              GORM 生成代码与连接
+└── pkg/errno/            统一错误码
+NekoCallerFrountend/src/
+├── views/RollCall.vue    点名主界面
+└── api/ stores/          请求与状态
+```
+
+## 测试
 
 ```bash
-cd NekoCallerFrountend
-npm install
-npm run dev
+cd NekoCallerBackend && go test ./biz/domain/...
 ```
 
-前端运行在 `http://localhost:5173`
+覆盖四种抽取模式、权重随积分下降、疯狂星期四加权、事件条件（2 的幂 / 质数 / 尾号 7）、积分结算表、转移权发放。
 
-## 🛠️ 技术栈
+## 已知问题
 
-**后端**
-- Go + CloudWeGo Hertz
-- GORM + MySQL
-- Thrift IDL
+- 必须用 Go 1.24 编译，依赖的 `sonic v1.14` 在 Go 1.27 上编不过。
+- 前端预演的分数变化和后端结算各算一遍，改规则要同步改 `RollCall.vue`。
+- 事件条件看服务器本地时间的秒/分钟，跨时区部署会不对。
+- Excel 导入没有按学号去重，同一份表导两次会有重复学生。
 
-**前端**
-- Vue 3 + Element Plus
-- Vite + Vue Router
-- Axios
+## 更多
 
-## 📖 使用说明
+分层改动与取舍见 [docs/DESIGN.md](docs/DESIGN.md)。
 
-详细功能说明和API文档请参考 [docs](/docs/)
+## 致谢
 
-## 📝 开发团队
+[Hertz](https://github.com/cloudwego/hertz)、[GORM](https://gorm.io/)、[Element Plus](https://element-plus.org/)、[excelize](https://github.com/qax-os/excelize)。
 
-- [ShaddockNH3](https://github.com/ShaddockNH3)
-- [nieie](https://github.com/nieie)
+## License
 
-## 📄 许可证
-
-[MIT License](LICENSE)
+MIT，见 [LICENSE](LICENSE)。
