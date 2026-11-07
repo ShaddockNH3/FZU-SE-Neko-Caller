@@ -5,3 +5,6 @@ dist-ssr
 .DS_Store
 .vscode/*
 !.vscode/extensions.json
+
+# vite 打包配置文件时留下的临时文件
+vite.config.js.timestamp-*
