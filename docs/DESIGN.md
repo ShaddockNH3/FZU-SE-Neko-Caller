@@ -45,20 +45,45 @@ service 只留三个适配点：包级 `picker`、`rollcall.ClockAt(time.Now())`
 
 | 文件 | 职责 | 行数 |
 | --- | --- | --- |
-| `views/RollCall.vue` | 两栏版面 + 连事件 | 91 |
-| `composables/useRollCall.js` | 全部状态与用例 | 250 |
-| `components/RollCallConfig.vue` | 班级、模式、事件、开始/重置 | 130 |
-| `components/EventSelector.vue` | 事件单选与说明气泡 | 50 |
-| `components/StudentResultCard.vue` | 学生信息 + 事件标签 | 60 |
-| `components/SolveForm.vue` | 回答类型、分数滑块、预览、转移目标 | 150 |
-| `components/RollCallHistory.vue` | 历史时间线 | 45 |
-| `components/StatCard.vue` | 首页四张指标卡（原来每张写一遍） | 70 |
+| `views/RollCall.vue` | 两栏版面 + 连事件 | 98 |
+| `composables/useRollCall.js` | 全部状态与用例 | 252 |
+| `components/RollCallConfig.vue` | 班级、模式、事件、开始/重置 | 131 |
+| `components/EventSelector.vue` | 事件单选与说明气泡 | 55 |
+| `components/StudentResultCard.vue` | 学生信息 + 事件标签 | 67 |
+| `components/SolveForm.vue` | 回答类型、分数滑块、预览、转移目标 | 162 |
+| `components/RollCallHistory.vue` | 历史时间线 | 56 |
+| `components/StatCard.vue` | 首页四张指标卡（原来每张写一遍） | 54 |
 
-首页 245 行 → 200 行，四张指标卡收成一个组件 + 一个 `statCards` 数组。
+首页 245 行 → 195 行，四张指标卡收成一个组件 + 一个 `statCards` 数组。
+
+### 界面
+
+这一版把 Element Plus 换成了 **Naive UI + Phosphor 图标**，和港区那个项目用同一套色值
+（底 `#f4f6fa`、卡片纯白、主色深蓝 `#1e40af`、强调金 `#c8963e`），全部写在 `theme.js` 的
+`themeOverrides` 里，组件内不写死颜色。
+
+侧栏从深灰 200px 换成白色可折叠：< 720px 收成 64px 图标栏。
+
+顺带修的：
+
+| 问题 | 处理 |
+| --- | --- |
+| 首页「今日点名 / 累计点名」是编的（学生数 × 5、再乘 0.1） | 改成按班级拉排行榜，累加 `call_count` 与 `total_points`；两张卡换成「累计点名」「平均积分」 |
+| 进点名页班级是空的，按钮点不了 | `loadClasses` 里默认选第一个，从首页带 `classId` 进来优先用它 |
+| Element 的标签类型 `danger` 在 Naive 里叫 `error` | `constants/events.js` 加 `naiveTagType()` 统一转 |
+| 提示同时在拦截器和 catch 里弹两次 | 收到拦截器一处，其余只写日志 |
+
+`累计点名` 现在是按班级逐个拉排行榜算的，N 个班就是 N 次请求。几十个班以内没问题，
+再多就该让后端加一个汇总接口（`GetClassStats` 只到单班粒度）。
 
 积分规则收进 `constants/events.js` 的 `scoreDelta()`，模板预览和本地历史都调它；五个 `el-tooltip` 里的说明文字变成 `EVENT_OPTIONS` 的数据，加事件只改数组。
 
 `scoreDelta` 的 16 种组合我逐条对过后端 `ScoreDelta` 的期望值（正常/求助 × 无事件/双倍/疯四/1024/质数/幸运7/负数分），一致。
+
+## 后端构建
+
+`go 1.27.0`。之前写的「必须用 Go 1.24」不成立了：卡点是 `sonic v1.14` 用了 Go 1.27 已删掉的
+`GoMapIterator`，把 hertz 升到 0.10.6、sonic 升到 1.15.5 就通了，代码一行没改。
 
 ## 代价
 

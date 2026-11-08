@@ -132,3 +132,8 @@ export function eventBadge(eventType) {
       return null
   }
 }
+
+// Element 的标签类型里有 danger，Naive 里叫 error；统一在这里转，组件别各写一遍。
+const TAG_TYPES = { danger: 'error', primary: 'primary', warning: 'warning', success: 'success', info: 'info' }
+
+export const naiveTagType = (type) => TAG_TYPES[type] || 'default'

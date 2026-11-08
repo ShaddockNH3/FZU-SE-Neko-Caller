@@ -1,144 +1,143 @@
-<template>
-  <div id="app">
-    <el-container class="layout-container">
-      <el-aside width="200px" class="sidebar">
-        <div class="logo">
-          <h2>🐱 Neko Caller</h2>
-        </div>
-        <el-menu
-          :default-active="activeMenu"
-          router
-          background-color="#545c64"
-          text-color="#fff"
-          active-text-color="#ffd04b"
-        >
-          <el-menu-item index="/">
-            <el-icon><House /></el-icon>
-            <span>首页</span>
-          </el-menu-item>
-          <el-menu-item index="/classes">
-            <el-icon><School /></el-icon>
-            <span>班级管理</span>
-          </el-menu-item>
-          <el-menu-item index="/students">
-            <el-icon><User /></el-icon>
-            <span>学生管理</span>
-          </el-menu-item>
-          <el-menu-item index="/roll-call">
-            <el-icon><Promotion /></el-icon>
-            <span>点名</span>
-          </el-menu-item>
-          <el-menu-item index="/leaderboard">
-            <el-icon><TrophyBase /></el-icon>
-            <span>排行榜</span>
-          </el-menu-item>
-        </el-menu>
-      </el-aside>
-      
-      <el-container>
-        <el-header class="header">
-          <div class="header-content">
-            <h3>智能课堂点名系统</h3>
-            <div class="header-right">
-              <span>欢迎使用</span>
-            </div>
-          </div>
-        </el-header>
-        
-        <el-main class="main-content">
-          <router-view v-slot="{ Component }">
-            <transition name="fade" mode="out-in">
-              <component :is="Component" />
-            </transition>
-          </router-view>
-        </el-main>
-      </el-container>
-    </el-container>
-  </div>
-</template>
-
 <script setup>
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, h } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  NConfigProvider,
+  NDialogProvider,
+  NIcon,
+  NLayout,
+  NLayoutContent,
+  NLayoutSider,
+  NMenu,
+  NMessageProvider,
+  dateZhCN,
+  zhCN
+} from 'naive-ui'
+import { PhCat } from '@phosphor-icons/vue'
+import { themeOverrides } from '@/theme'
+import { useBreakpoints } from '@/composables/useBreakpoints'
 
+const router = useRouter()
 const route = useRoute()
-const activeMenu = computed(() => route.path)
+const { isNarrow } = useBreakpoints()
+
+// 花名册是从班级点进来的，侧栏还该高亮「班级管理」
+const activeKey = computed(() => route.meta.parent || route.path)
+
+const menuOptions = computed(() =>
+  router.options.routes
+    .filter((item) => item.meta?.title && item.meta?.icon)
+    .map((item) => ({
+      key: item.path,
+      label: item.meta.title,
+      icon: () => h(NIcon, null, { default: () => h(item.meta.icon) })
+    }))
+)
+
+function go(key) {
+  router.push(key)
+}
 </script>
 
-<style scoped>
-.layout-container {
+<template>
+  <n-config-provider :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
+    <n-message-provider>
+      <n-dialog-provider>
+        <n-layout has-sider class="shell">
+          <n-layout-sider
+            bordered
+            :width="220"
+            :collapsed-width="64"
+            :collapsed="isNarrow"
+            :show-trigger="false"
+            class="sider"
+          >
+            <div class="brand" :class="{ 'is-collapsed': isNarrow }">
+              <n-icon :size="26" color="#1e40af"><PhCat weight="duotone" /></n-icon>
+              <div v-if="!isNarrow" class="brand-text">
+                <h1>Neko Caller</h1>
+                <span>课堂点名系统</span>
+              </div>
+            </div>
+
+            <n-menu
+              :value="activeKey"
+              :options="menuOptions"
+              :collapsed="isNarrow"
+              :collapsed-width="64"
+              :collapsed-icon-size="20"
+              :root-indent="18"
+              @update:value="go"
+            />
+          </n-layout-sider>
+
+          <n-layout-content class="content">
+            <div class="content-inner">
+              <router-view />
+            </div>
+          </n-layout-content>
+        </n-layout>
+      </n-dialog-provider>
+    </n-message-provider>
+  </n-config-provider>
+</template>
+
+<style lang="scss" scoped>
+.shell {
+  // 撑满一屏：不然内容短的时候侧栏只有半截
   height: 100vh;
+  background: #f4f6fa;
 }
 
-.sidebar {
-  background-color: #545c64;
-  color: white;
+.sider {
+  background: #fff;
 }
 
-.logo {
-  padding: 20px;
-  text-align: center;
-  background-color: #434a50;
-  margin-bottom: 20px;
-}
-
-.logo h2 {
-  margin: 0;
-  color: #ffd04b;
-  font-size: 20px;
-}
-
-.header {
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0,0,0,.08);
-  padding: 0 20px;
-  line-height: 60px;
-}
-
-.header-content {
+.brand {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  height: 64px;
+  padding: 0 18px;
+  border-bottom: 1px solid #eef1f7;
+
+  &.is-collapsed {
+    justify-content: center;
+    padding: 0;
+  }
 }
 
-.header-content h3 {
-  margin: 0;
-  color: #303133;
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+
+  h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  span {
+    font-size: 11px;
+    color: #8b95a7;
+    letter-spacing: 0.6px;
+  }
 }
 
-.header-right {
-  color: #606266;
+.content {
+  background: #f4f6fa;
 }
 
-.main-content {
-  background-color: #f5f5f5;
-  padding: 20px;
+.content-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 28px 40px;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>
-
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-}
-
-#app {
-  height: 100vh;
+@media (max-width: 760px) {
+  .content-inner {
+    padding: 16px 12px 32px;
+  }
 }
 </style>

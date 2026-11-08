@@ -1,0 +1,65 @@
+// 全局样式：只留重置、底色和页面骨架。
+// 卡片、表格、菜单的样式由 Naive UI 主题接管（见 src/theme.js）。
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  min-height: 100%;
+  background: #f4f6fa;
+  color: #1f2937;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d5dbe6;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #bcc5d4;
+}
+
+// 浅色底上纯白卡片容易糊成一片，给一层很淡的投影拉出层次
+.n-card {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 28px -20px rgba(16, 24, 40, 0.18);
+}
+
+// 页头：每个页面自己声明标题和一句说明
+.page-head {
+  margin-bottom: 18px;
+
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  p {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #8b95a7;
+  }
+}
+
+// 时间、数字这类不该换行的单元格
+.n-data-table .nowrap {
+  white-space: nowrap;
+}

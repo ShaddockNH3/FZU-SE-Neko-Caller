@@ -1,5 +1,19 @@
 <script setup>
-import { CircleCheckFilled } from '@element-plus/icons-vue'
+import {
+  NButton,
+  NDivider,
+  NForm,
+  NFormItem,
+  NIcon,
+  NRadio,
+  NRadioGroup,
+  NSelect,
+  NSlider,
+  NTag,
+  NText
+} from 'naive-ui'
+import { PhCheckCircle } from '@phosphor-icons/vue'
+import { naiveTagType } from '@/constants/events'
 
 /**
  * 回答结算表单。积分规则在 constants/events.js，这里只管收集输入。
@@ -35,106 +49,114 @@ const SCORE_MARKS = {
   2.5: '2.5',
   3: '3'
 }
+
+const targetOptions = () =>
+  props.targets.map((item) => ({
+    label: `${item.student_info.name}（${item.student_info.student_id}）`,
+    value: item.student_info.student_id
+  }))
 </script>
 
 <template>
-  <div class="solve-panel">
-    <el-divider>回答结算</el-divider>
+  <div class="solve">
+    <n-divider title-placement="left">回答结算</n-divider>
 
-    <el-form label-width="120px">
-      <el-form-item label="回答类型">
-        <el-radio-group
-          :model-value="props.answerType"
-          @update:model-value="(value) => emit('update:answerType', value)"
-        >
-          <el-radio :label="0">正常回答</el-radio>
-          <el-radio :label="1">请求帮助（准确重复）</el-radio>
-          <el-radio :label="2" :disabled="!props.canSkip">跳过（需跳过权）</el-radio>
-          <el-radio :label="3" :disabled="!props.canTransfer">转移权</el-radio>
-        </el-radio-group>
+    <n-form label-placement="left" :label-width="88" :show-feedback="false">
+      <n-form-item label="回答类型">
+        <div>
+          <n-radio-group
+            :value="props.answerType"
+            @update:value="(value) => emit('update:answerType', value)"
+          >
+            <n-radio :value="0">正常回答</n-radio>
+            <n-radio :value="1">请求帮助</n-radio>
+            <n-radio :value="2" :disabled="!props.canSkip">跳过</n-radio>
+            <n-radio :value="3" :disabled="!props.canTransfer">转移权</n-radio>
+          </n-radio-group>
 
-        <div class="hint">
-          <el-text v-if="props.answerType === 2 && !props.canSkip" type="warning" size="small">
+          <n-text v-if="props.answerType === 2 && !props.canSkip" type="warning" class="hint">
             跳过权不足
-          </el-text>
-          <el-text v-if="props.answerType === 3 && !props.canTransfer" type="warning" size="small">
+          </n-text>
+          <n-text v-if="props.answerType === 3 && !props.canTransfer" type="warning" class="hint">
             转移权不足
-          </el-text>
+          </n-text>
         </div>
-      </el-form-item>
+      </n-form-item>
 
-      <el-form-item v-if="props.answerType === 0 || props.answerType === 3" label="回答分数">
-        <el-slider
-          :model-value="props.customScore"
-          :min="-1"
-          :max="3"
-          :step="0.5"
-          show-stops
-          :marks="SCORE_MARKS"
-          @update:model-value="(value) => emit('update:customScore', value)"
-        />
-
-        <div class="preview">
-          <el-text v-if="props.answerType === 3" type="primary" size="small">
-            为转移目标选择积分
-          </el-text>
-          <el-tag v-if="props.preview" :type="props.preview.type" :color="props.preview.color">
-            {{ props.preview.text }}
-          </el-tag>
-          <el-text type="info" size="small">本次结算 {{ props.pendingDelta }} 分</el-text>
-        </div>
-      </el-form-item>
-
-      <el-form-item v-if="props.answerType === 3" label="转移目标">
-        <el-select
-          :model-value="props.targetStudentId"
-          placeholder="选择转移目标学生"
-          class="full-width"
-          :disabled="!props.canTransfer"
-          @update:model-value="(value) => emit('update:targetStudentId', value)"
-        >
-          <el-option
-            v-for="item in props.targets"
-            :key="item.enrollment_info.enrollment_id"
-            :label="`${item.student_info.name} (${item.student_info.student_id})`"
-            :value="item.student_info.student_id"
+      <n-form-item v-if="props.answerType === 0 || props.answerType === 3" label="回答分数">
+        <div class="score-block">
+          <n-slider
+            :value="props.customScore"
+            :min="-1"
+            :max="3"
+            :step="0.5"
+            :marks="SCORE_MARKS"
+            :format-tooltip="(value) => value.toFixed(1)"
+            @update:value="(value) => emit('update:customScore', value)"
           />
-        </el-select>
-        <el-text v-if="!props.canTransfer" type="warning" size="small" class="hint">
-          转移权不足
-        </el-text>
-      </el-form-item>
 
-      <el-form-item>
-        <el-button
-          type="success"
-          size="large"
-          class="full-width"
-          :loading="props.solving"
-          @click="emit('submit')"
-        >
-          <el-icon><CircleCheckFilled /></el-icon>
-          提交结算
-        </el-button>
-      </el-form-item>
-    </el-form>
+          <div class="preview">
+            <n-text v-if="props.answerType === 3" depth="3" class="hint">
+              给转移目标选积分
+            </n-text>
+
+            <n-tag
+              v-if="props.preview"
+              size="small"
+              :type="naiveTagType(props.preview.type)"
+              :bordered="false"
+            >
+              {{ props.preview.text }}
+            </n-tag>
+
+            <n-text depth="3" class="hint">本次结算 {{ props.pendingDelta }} 分</n-text>
+          </div>
+        </div>
+      </n-form-item>
+
+      <n-form-item v-if="props.answerType === 3" label="转移目标">
+        <div class="score-block">
+          <n-select
+            :value="props.targetStudentId"
+            :options="targetOptions()"
+            placeholder="选择转移目标"
+            :disabled="!props.canTransfer"
+            @update:value="(value) => emit('update:targetStudentId', value)"
+          />
+          <n-text v-if="!props.canTransfer" type="warning" class="hint">转移权不足</n-text>
+        </div>
+      </n-form-item>
+
+      <n-button type="primary" size="large" block :loading="props.solving" @click="emit('submit')">
+        <template #icon>
+          <n-icon><PhCheckCircle weight="fill" /></n-icon>
+        </template>
+        提交结算
+      </n-button>
+    </n-form>
   </div>
 </template>
 
-<style scoped>
-.full-width {
+<style lang="scss" scoped>
+.solve {
+  margin-top: 8px;
+  padding-top: 4px;
+}
+
+.score-block {
   width: 100%;
+  padding-top: 4px;
 }
 
 .hint {
-  margin-top: 5px;
+  font-size: 12px;
 }
 
 .preview {
-  margin-top: 10px;
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  margin: 14px 0 6px;
 }
 </style>

@@ -59,11 +59,13 @@ NekoCallerBackend/
 ├── biz/dal/              GORM 生成代码与连接
 └── pkg/errno/            统一错误码
 NekoCallerFrountend/src/
+├── theme.js              浅色调色板与 Naive UI themeOverrides，颜色只在这里改
+├── utils/feedback.js     全局 message / dialog（组件外也能弹提示）
 ├── constants/events.js   随机事件文案与积分规则（一份，预览和结算共用）
 ├── composables/          点名页状态与用例（选班 / 点名 / 结算 / 重置 / 历史）
 ├── components/           配置面板、事件选择、学生卡片、结算表单、历史
-├── views/                页面：点名 91 行，其余为班级/学生/排行
-└── api/ stores/          请求与状态
+├── views/                页面：首页 / 班级 / 学生 / 点名 / 排行榜 / 花名册
+└── api/                  请求封装（错误提示统一在拦截器）
 ```
 
 ## 测试
@@ -76,7 +78,7 @@ cd NekoCallerBackend && go test ./biz/domain/...
 
 ## 已知问题
 
-- 必须用 Go 1.24 编译，依赖的 `sonic v1.14` 在 Go 1.27 上编不过。
+- 前端没接 CI，改动靠 `npm run build` 和手点验证。
 - 前端预演的分数变化和后端结算各算一遍，改规则要同步改 `RollCall.vue`。
 - 事件条件看服务器本地时间的秒/分钟，跨时区部署会不对。
 - Excel 导入没有按学号去重，同一份表导两次会有重复学生。
@@ -87,7 +89,7 @@ cd NekoCallerBackend && go test ./biz/domain/...
 
 ## 致谢
 
-[Hertz](https://github.com/cloudwego/hertz)、[GORM](https://gorm.io/)、[Element Plus](https://element-plus.org/)、[excelize](https://github.com/qax-os/excelize)。
+[Hertz](https://github.com/cloudwego/hertz)、[GORM](https://gorm.io/)、[Naive UI](https://www.naiveui.com/)、[excelize](https://github.com/qax-os/excelize)。
 
 ## License
 

@@ -1,5 +1,6 @@
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute } from 'vue-router'
+import { dialog, message } from '@/utils/feedback'
 import { classAPI, rollCallAPI, rosterAPI } from '@/api'
 import { ANSWER_TYPE, scoreDelta, scorePreview } from '@/constants/events'
 
@@ -10,6 +11,8 @@ import { ANSWER_TYPE, scoreDelta, scorePreview } from '@/constants/events'
  * 抽出来之后页面只负责布局，规则在 constants/events.js。
  */
 export function useRollCall() {
+  const route = useRoute()
+
   const classList = ref([])
   const selectedClassId = ref('')
   const mode = ref(0)
@@ -50,12 +53,23 @@ export function useRollCall() {
     })
   )
 
+  /** 拉班级列表。不选就默认第一个，从首页点「点名」进来时优先用 URL 上的 classId。 */
   async function loadClasses() {
     try {
       classList.value = await classAPI.getList()
     } catch (error) {
       console.error('加载班级失败:', error)
-      ElMessage.error('加载班级列表失败')
+      return
+    }
+
+    if (selectedClassId.value) return
+
+    const fromQuery = route.query.classId
+    const hit = classList.value.find((item) => item.class_id === fromQuery)
+    selectedClassId.value = hit?.class_id || classList.value[0]?.class_id || ''
+
+    if (selectedClassId.value) {
+      await onClassChange()
     }
   }
 
@@ -72,7 +86,7 @@ export function useRollCall() {
       classRoster.value = await rosterAPI.getClassRoster(selectedClassId.value)
     } catch (error) {
       console.error('加载花名册失败:', error)
-      ElMessage.error('加载班级花名册失败')
+      message.error('加载班级花名册失败')
     }
   }
 
@@ -95,31 +109,33 @@ export function useRollCall() {
       customScore.value = 0
       targetStudentId.value = ''
 
-      const message = result.base_response.message || `点到了 ${result.roster_item.student_info.name}`
-      const isSpecial = ['1024福报', '质数', 'Lucky 7'].some((word) => message.includes(word))
-      if (isSpecial) {
-        ElMessage({ message, type: 'success', duration: 5000, showClose: true })
-      } else {
-        ElMessage.success(message)
-      }
+      const text = result.base_response.message || `点到了 ${result.roster_item.student_info.name}`
+      const isSpecial = ['1024福报', '质数', 'Lucky 7'].some((word) => text.includes(word))
+      // 特殊事件多留一会儿，让学生看清触发了什么
+      message.success(text, isSpecial ? { duration: 5000 } : undefined)
     } catch (error) {
       console.error('点名失败:', error)
-      ElMessage.error(error.message || '点名失败')
+      message.error(error.message || '点名失败')
     } finally {
       calling.value = false
     }
   }
 
   async function resetRollCall() {
-    try {
-      await ElMessageBox.confirm(
-        '重置后，该班级所有学生的点名次数将归零，是否继续？',
-        '确认重置',
-        { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
-      )
-    } catch {
-      return // 取消
-    }
+    const confirmed = await new Promise((resolve) => {
+      dialog.warning({
+        title: '重置点名状态',
+        content: '重置后，该班级所有学生的点名次数会归零，顺序点名也会从头开始。',
+        positiveText: '重置',
+        negativeText: '取消',
+        onPositiveClick: () => resolve(true),
+        onNegativeClick: () => resolve(false),
+        onClose: () => resolve(false),
+        onMaskClick: () => resolve(false)
+      })
+    })
+
+    if (!confirmed) return
 
     resetting.value = true
     try {
@@ -127,12 +143,12 @@ export function useRollCall() {
       if (result.code !== 100) {
         throw new Error(result.message || '重置失败')
       }
-      ElMessage.success('重置成功')
+      message.success('重置成功')
       currentStudent.value = null
       await onClassChange()
     } catch (error) {
       console.error('重置失败:', error)
-      ElMessage.error(error.message || '重置失败')
+      message.error(error.message || '重置失败')
     } finally {
       resetting.value = false
     }
@@ -144,17 +160,17 @@ export function useRollCall() {
 
     if (answerType.value === ANSWER_TYPE.TRANSFER) {
       if (!targetStudentId.value) {
-        ElMessage.warning('请选择转移目标学生')
+        message.warning('请选择转移目标学生')
         return
       }
       if (!hasTransferRight.value) {
-        ElMessage.warning('转移权不足')
+        message.warning('转移权不足')
         return
       }
     }
 
     if (answerType.value === ANSWER_TYPE.SKIP && !hasSkipRight.value) {
-      ElMessage.warning('跳过权不足')
+      message.warning('跳过权不足')
       return
     }
 
@@ -173,7 +189,7 @@ export function useRollCall() {
         (item) => item.student_info.student_id === targetStudentId.value
       )
       if (!target) {
-        ElMessage.error('未找到目标学生')
+        message.error('未找到目标学生')
         return
       }
       payload.target_enrollment_id = target.enrollment_info.enrollment_id
@@ -191,12 +207,12 @@ export function useRollCall() {
         scoreChange: pendingDelta.value
       })
 
-      ElMessage.success('结算成功')
+      message.success('结算成功')
       currentStudent.value = null
       await onClassChange()
     } catch (error) {
       console.error('结算失败:', error)
-      ElMessage.error(error.response?.data?.message || '结算失败')
+      message.error(error.response?.data?.message || '结算失败')
     } finally {
       solving.value = false
     }

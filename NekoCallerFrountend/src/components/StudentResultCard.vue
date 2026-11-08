@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
-import { eventBadge } from '@/constants/events'
+import { NDescriptions, NDescriptionsItem, NTag, NTooltip } from 'naive-ui'
+import { eventBadge, naiveTagType } from '@/constants/events'
 
 /** 被点名学生的基础信息 + 本次生效的事件标签。 */
 const props = defineProps({
@@ -10,47 +11,57 @@ const props = defineProps({
 
 const badge = computed(() => eventBadge(props.eventType))
 const enrollment = computed(() => props.student.enrollment_info || {})
+const info = computed(() => props.student.student_info || {})
 </script>
 
 <template>
-  <div class="student-card">
-    <el-descriptions :column="2" border>
-      <el-descriptions-item label="学号">{{ student.student_info.student_id }}</el-descriptions-item>
-      <el-descriptions-item label="姓名">
-        <el-tag size="large" type="primary">{{ student.student_info.name }}</el-tag>
-      </el-descriptions-item>
-      <el-descriptions-item label="专业" :span="2">
-        {{ student.student_info.major || '-' }}
-      </el-descriptions-item>
+  <n-descriptions :column="2" bordered size="small" label-placement="left">
+    <n-descriptions-item label="学号">{{ info.student_id }}</n-descriptions-item>
 
-      <el-descriptions-item label="当前积分">
-        <el-statistic :value="enrollment.total_points" :precision="1">
-          <template #suffix>分</template>
-        </el-statistic>
-      </el-descriptions-item>
-      <el-descriptions-item label="点名次数">
-        <el-statistic :value="enrollment.call_count">
-          <template #suffix>次</template>
-        </el-statistic>
-      </el-descriptions-item>
+    <n-descriptions-item label="姓名">
+      <n-tag type="primary" size="large" :bordered="false">{{ info.name }}</n-tag>
+    </n-descriptions-item>
 
-      <el-descriptions-item label="转移权">
-        <el-tag :type="enrollment.transfer_rights > 0 ? 'success' : 'info'">
-          {{ enrollment.transfer_rights }}
-        </el-tag>
-      </el-descriptions-item>
-      <el-descriptions-item label="跳过权">
-        <el-tag :type="enrollment.skip_rights > 0 ? 'success' : 'info'">
-          {{ enrollment.skip_rights }}
-        </el-tag>
-      </el-descriptions-item>
+    <n-descriptions-item label="专业" :span="2">{{ info.major || '—' }}</n-descriptions-item>
 
-      <el-descriptions-item label="事件">
-        <el-tooltip v-if="badge" effect="dark" placement="top" :content="badge.tip">
-          <el-tag :type="badge.type" :color="badge.color" effect="dark">{{ badge.label }}</el-tag>
-        </el-tooltip>
-        <el-tag v-else type="info">无</el-tag>
-      </el-descriptions-item>
-    </el-descriptions>
-  </div>
+    <n-descriptions-item label="当前积分">
+      <span class="value">{{ Number(enrollment.total_points || 0).toFixed(1) }}</span>
+    </n-descriptions-item>
+
+    <n-descriptions-item label="点名次数">
+      <span class="value">{{ enrollment.call_count || 0 }}</span>
+    </n-descriptions-item>
+
+    <n-descriptions-item label="转移权">
+      <n-tag :type="enrollment.transfer_rights > 0 ? 'success' : 'default'" size="small" :bordered="false">
+        {{ enrollment.transfer_rights || 0 }}
+      </n-tag>
+    </n-descriptions-item>
+
+    <n-descriptions-item label="跳过权">
+      <n-tag :type="enrollment.skip_rights > 0 ? 'success' : 'default'" size="small" :bordered="false">
+        {{ enrollment.skip_rights || 0 }}
+      </n-tag>
+    </n-descriptions-item>
+
+    <n-descriptions-item label="事件" :span="2">
+      <n-tooltip v-if="badge" trigger="hover">
+        <template #trigger>
+          <n-tag :type="naiveTagType(badge.type)" size="small" :bordered="false">{{ badge.label }}</n-tag>
+        </template>
+        {{ badge.tip }}
+      </n-tooltip>
+
+      <n-tag v-else size="small" :bordered="false">无</n-tag>
+    </n-descriptions-item>
+  </n-descriptions>
 </template>
+
+<style lang="scss" scoped>
+.value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  font-variant-numeric: tabular-nums;
+}
+</style>

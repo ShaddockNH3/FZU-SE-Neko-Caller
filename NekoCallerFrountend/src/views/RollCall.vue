@@ -1,4 +1,6 @@
 <script setup>
+import { NCard, NEmpty, NGi, NGrid, NIcon } from 'naive-ui'
+import { PhHandPointing } from '@phosphor-icons/vue'
 import { useRollCall } from '@/composables/useRollCall'
 import RollCallConfig from '@/components/RollCallConfig.vue'
 import RollCallHistory from '@/components/RollCallHistory.vue'
@@ -34,9 +36,14 @@ const {
 </script>
 
 <template>
-  <div class="roll-call-container">
-    <el-row :gutter="20">
-      <el-col :span="10">
+  <div>
+    <header class="page-head">
+      <h2>点名</h2>
+      <p>选班级、挑模式，点一下开始；结算完自动进排行榜</p>
+    </header>
+
+    <n-grid cols="1 m:10" responsive="screen" :x-gap="16" :y-gap="16" item-responsive>
+      <n-gi span="1 m:5">
         <roll-call-config
           v-model:class-id="selectedClassId"
           v-model:mode="mode"
@@ -51,18 +58,18 @@ const {
         />
 
         <roll-call-history :records="history" />
-      </el-col>
+      </n-gi>
 
-      <el-col :span="14">
-        <el-card v-if="!currentStudent">
-          <el-empty description="点击开始点名按钮开始" />
-        </el-card>
+      <n-gi span="1 m:5">
+        <n-card v-if="!currentStudent" size="small" title="被点名学生">
+          <n-empty description="点「开始点名」抽一个学生" class="empty">
+            <template #icon>
+              <n-icon><PhHandPointing /></n-icon>
+            </template>
+          </n-empty>
+        </n-card>
 
-        <el-card v-else>
-          <template #header>
-            <span>被点名学生</span>
-          </template>
-
+        <n-card v-else size="small" title="被点名学生">
           <student-result-card :student="currentStudent" :event-type="actualEventType" />
 
           <solve-form
@@ -78,14 +85,14 @@ const {
             :can-skip="hasSkipRight"
             @submit="submitSolve"
           />
-        </el-card>
-      </el-col>
-    </el-row>
+        </n-card>
+      </n-gi>
+    </n-grid>
   </div>
 </template>
 
-<style scoped>
-.roll-call-container {
-  padding: 4px;
+<style lang="scss" scoped>
+.empty {
+  padding: 60px 0;
 }
 </style>

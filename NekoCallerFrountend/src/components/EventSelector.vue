@@ -1,4 +1,5 @@
 <script setup>
+import { NRadio, NRadioGroup, NTooltip } from 'naive-ui'
 import { EVENT_OPTIONS } from '@/constants/events'
 
 /** 事件单选：文案和说明都来自 constants/events.js，加事件只改数据。 */
@@ -11,38 +12,42 @@ const emit = defineEmits(['update:modelValue'])
 </script>
 
 <template>
-  <el-radio-group
-    :model-value="modelValue"
+  <n-radio-group
+    :value="modelValue"
     :disabled="disabled"
-    @update:model-value="(value) => emit('update:modelValue', value)"
+    style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 8px"
+    @update:value="(value) => emit('update:modelValue', value)"
   >
     <template v-for="option in EVENT_OPTIONS" :key="option.value">
-      <el-tooltip v-if="option.tip" effect="dark" placement="top" :show-after="300">
-        <template #content>
-          <div class="event-tip">
-            <div><strong>{{ option.tip.title }}</strong></div>
-            <div class="event-tip-body">{{ option.tip.body }}</div>
-            <div class="event-tip-keywords">{{ option.tip.keywords }}</div>
-          </div>
+      <n-tooltip v-if="option.tip" trigger="hover" placement="top" :delay="300">
+        <template #trigger>
+          <n-radio :value="option.value">{{ option.label }}</n-radio>
         </template>
-        <el-radio :label="option.value">{{ option.label }}</el-radio>
-      </el-tooltip>
-      <el-radio v-else :label="option.value">{{ option.label }}</el-radio>
+
+        <div class="tip">
+          <strong>{{ option.tip.title }}</strong>
+          <p>{{ option.tip.body }}</p>
+          <span>{{ option.tip.keywords }}</span>
+        </div>
+      </n-tooltip>
+
+      <n-radio v-else :value="option.value">{{ option.label }}</n-radio>
     </template>
-  </el-radio-group>
+  </n-radio-group>
 </template>
 
-<style scoped>
-.event-tip {
-  max-width: 300px;
-}
+<style lang="scss" scoped>
+.tip {
+  max-width: 280px;
 
-.event-tip-body {
-  margin-top: 5px;
-}
+  p {
+    margin-top: 4px;
+  }
 
-.event-tip-keywords {
-  margin-top: 5px;
-  color: #409eff;
+  span {
+    display: inline-block;
+    margin-top: 4px;
+    color: #9db8f0;
+  }
 }
 </style>

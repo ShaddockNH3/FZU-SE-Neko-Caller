@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { message } from '@/utils/feedback'
 
 const request = axios.create({
   baseURL: '/v1',
@@ -28,7 +28,7 @@ request.interceptors.response.use(
     return res
   },
   error => {
-    ElMessage.error(error.response?.data?.message || '请求失败')
+    message.error(error.response?.data?.message || '请求失败')
     return Promise.reject(error)
   }
 )
