@@ -9,7 +9,16 @@ cd NekoCallerBackend && go run main.go          # :8888，首次启动自动建�
 cd NekoCallerFrountend && npm install && npm run dev
 ```
 
-需要 MySQL，连接信息在 `NekoCallerBackend/biz/dal/mysql/mysql.go`。前端目录名拼错成 `Frountend` 是历史遗留，没改。
+需要 MySQL，首次启动会自动建表。前端目录名拼错成 `Frountend` 是历史遗留，没改。
+
+## 配置
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `MYSQL_HOST` / `MYSQL_PORT` | `localhost` / `3306` | 数据库地址 |
+| `MYSQL_USER` / `MYSQL_PASSWORD` | `root` / `123456` | 账号 |
+| `MYSQL_DATABASE` | `neko_caller_db` | 库名 |
+| `APP_TIMEZONE` | `Asia/Shanghai` | 判随机事件条件用的时区，见下 |
 
 ## 接口
 
@@ -80,7 +89,7 @@ cd NekoCallerBackend && go test ./biz/domain/...
 
 - 前端没接 CI，改动靠 `npm run build` 和手点验证。
 - 前端预演的分数变化和后端结算各算一遍，改规则要同步改 `RollCall.vue`。
-- 事件条件看服务器本地时间的秒/分钟，跨时区部署会不对。
+- 随机事件条件读的是 `APP_TIMEZONE` 指定的时区（默认东八区），不是服务器本地时区；`time/tzdata` 已内嵌，容器里也不用装时区包。
 - Excel 导入没有按学号去重，同一份表导两次会有重复学生。
 
 ## 更多

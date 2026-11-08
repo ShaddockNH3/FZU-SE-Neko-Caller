@@ -32,6 +32,18 @@ service 只留三个适配点：包级 `picker`、`rollcall.ClockAt(time.Now())`
 
 原实现每次调用都读全局 `rng`，测试只能断言"没崩"。现在 `NewPicker(seed)` 固定种子就固定结果，`TestPickIsDeterministicWithSeed` 才能成立；线上用 `NewPicker(time.Now().UnixNano())`，行为不变。
 
+## 时钟与时区
+
+`ClockAt(now, loc)`：先把时间换到 `loc`，再取分钟和秒。`loc` 来自 `pkg/constants.AppLocation`，
+默认 `Asia/Shanghai`，可用 `APP_TIMEZONE` 覆盖。
+
+为什么较真：`质数的孤独` 看分钟、`1024 福报` 看秒，都是学生眼里的"现在几点"。
+服务器跑在 UTC 时东八区是整小时偏移，分秒恰好一样，看不出问题；但只要部署到 +05:30 这种
+半小时时区，同一瞬间的分钟就不同，事件会在错误的时间触发。现在不再依赖宿主机时区设置。
+
+`pkg/constants` 里 `import _ "time/tzdata"`，把时区库编进二进制——容器镜像常常只带 UTC，
+没有这个文件 `LoadLocation` 会失败然后悄悄退回 UTC。
+
 ## 为什么把时钟做成参数
 
 事件条件判断的是"第几秒 / 第几分"。原实现读 `time.Now()`，只能等真实时间凑巧。抽成 `Clock` 之后，"16 秒满足 1024 福报、17 秒不满足"这种断言一行就能写。

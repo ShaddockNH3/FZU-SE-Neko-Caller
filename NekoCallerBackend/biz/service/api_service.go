@@ -15,6 +15,7 @@ import (
 	"FZUSENekoCaller/biz/domain/rollcall"
 	"FZUSENekoCaller/biz/model/api"
 	"FZUSENekoCaller/biz/model/common"
+	"FZUSENekoCaller/pkg/constants"
 	"FZUSENekoCaller/pkg/errno"
 
 	"github.com/google/uuid"
@@ -213,7 +214,7 @@ func (s *APIService) RollCall(req *api.RollCallRequest) (common.RosterItem, comm
 	// 如果用户选择了事件，验证条件是否满足
 	actualEventType := req.EventType
 	if req.EventType != common.RandomEventType_NONE {
-		if !rollcall.EventMet(req.EventType, selected.StudentInfo.StudentID, rollcall.ClockAt(time.Now())) {
+		if !rollcall.EventMet(req.EventType, selected.StudentInfo.StudentID, rollcall.ClockAt(time.Now(), constants.AppLocation)) {
 			// 条件不满足，事件不生效
 			req.EventType = common.RandomEventType_NONE
 			actualEventType = common.RandomEventType_NONE
@@ -243,11 +244,8 @@ func (s *APIService) SolveRollCall(req *api.SolveRollCallRequest) error {
 
 		// 验证事件条件是否满足，如果不满足则重置为NONE
 		if req.EventType != common.RandomEventType_NONE {
-			fmt.Printf("[DEBUG] 验证事件 %v 对学号 %s\n", req.EventType, enrollment.StudentID)
-			conditionMet := rollcall.EventMet(req.EventType, enrollment.StudentID, rollcall.ClockAt(time.Now()))
-			fmt.Printf("[DEBUG] 条件满足: %v\n", conditionMet)
+			conditionMet := rollcall.EventMet(req.EventType, enrollment.StudentID, rollcall.ClockAt(time.Now(), constants.AppLocation))
 			if !conditionMet {
-				fmt.Printf("[DEBUG] 条件不满足，重置事件为NONE\n")
 				req.EventType = common.RandomEventType_NONE
 			}
 		} // 计算积分变化

@@ -12,8 +12,16 @@ type Clock struct {
 	Second int
 }
 
-// ClockAt 把真实时间截到分钟和秒。
-func ClockAt(now time.Time) Clock {
+// ClockAt 把时间换成指定时区后，取分钟和秒。
+//
+// 之前直接读 now.Minute()：服务器跑在 UTC 时，"质数的孤独"（看分钟）会按 UTC 判，
+// 学生手机上是北京时间，两边差 8 小时，事件该触发的时候不触发。
+// 现在时区显式传进来，loc 为 nil 时退回服务器本地时区。
+func ClockAt(now time.Time, loc *time.Location) Clock {
+	if loc != nil {
+		now = now.In(loc)
+	}
+
 	return Clock{Minute: now.Minute(), Second: now.Second()}
 }
 

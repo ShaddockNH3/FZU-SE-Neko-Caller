@@ -61,9 +61,34 @@ func TestEventMet(t *testing.T) {
 	}
 }
 
-func TestClockAt(t *testing.T) {
-	clock := ClockAt(time.Date(2025, 5, 1, 12, 23, 10, 0, time.UTC))
-	if clock.Second != 10 || clock.Minute != 23 {
+func TestClockAtUsesGivenLocation(t *testing.T) {
+	shanghai, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Skipf("找不到时区数据: %v", err)
+	}
+
+	// UTC 04:23:10 == 北京时间 12:23:10，东八区是整小时偏移，分秒不变
+	clock := ClockAt(time.Date(2025, 5, 1, 4, 23, 10, 0, time.UTC), shanghai)
+	if clock.Minute != 23 || clock.Second != 10 {
+		t.Errorf("时钟取值不对: %+v", clock)
+	}
+
+	// 加德满都 +05:45，分钟会真的变：UTC 04:23:10 → 当地 10:08:10
+	kathmandu, err := time.LoadLocation("Asia/Kathmandu")
+	if err != nil {
+		t.Skipf("找不到时区数据: %v", err)
+	}
+
+	clock = ClockAt(time.Date(2025, 5, 1, 4, 23, 10, 0, time.UTC), kathmandu)
+	if clock.Minute != 8 || clock.Second != 10 {
+		t.Errorf("跨时区取分钟不对: %+v", clock)
+	}
+}
+
+// loc 传 nil 时退回服务器本地时区，不应该 panic
+func TestClockAtNilLocation(t *testing.T) {
+	clock := ClockAt(time.Date(2025, 5, 1, 12, 23, 10, 0, time.Local), nil)
+	if clock.Minute != 23 || clock.Second != 10 {
 		t.Errorf("时钟取值不对: %+v", clock)
 	}
 }
