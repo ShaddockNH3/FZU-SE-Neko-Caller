@@ -5,14 +5,17 @@ import { NButton, NCard, NDataTable, NGi, NGrid, NIcon, NList, NListItem } from 
 import {
   PhChartLineUp,
   PhGraduationCap,
+  PhListDashes,
   PhMegaphone,
   PhTrophy,
   PhUsers
 } from '@phosphor-icons/vue'
 import StatCard from '@/components/StatCard.vue'
 import { classAPI, studentAPI } from '@/api'
+import { useBreakpoints } from '@/composables/useBreakpoints'
 
 const router = useRouter()
+const { isCompact } = useBreakpoints()
 
 const loading = ref(true)
 const stats = ref({
@@ -77,32 +80,61 @@ function goRollCall(classId) {
   router.push({ path: '/roll-call', query: { classId } })
 }
 
-const columns = [
-  { title: '班级名称', key: 'class_name', minWidth: 200 },
-  {
-    title: '学生人数',
-    key: 'student_count',
-    width: 120,
-    render: (row) => row.student_ids?.length || 0
-  },
-  {
+// 窄屏：只留班级名和两个图标按钮，「学生人数」那列先让位
+const columns = computed(() => {
+  const iconOnly = isCompact.value
+
+  const actions = {
     title: '操作',
     key: 'actions',
-    width: 200,
-    render: (row) => [
-      h(
-        NButton,
-        { size: 'tiny', secondary: true, onClick: () => goRoster(row.class_id) },
-        { default: () => '花名册' }
-      ),
-      h(
-        NButton,
-        { size: 'tiny', type: 'primary', style: 'margin-left:8px', onClick: () => goRollCall(row.class_id) },
-        { default: () => '点名' }
-      )
-    ]
+    width: iconOnly ? 96 : 200,
+    render: (row) =>
+      h('div', { style: 'display:flex;gap:6px' }, [
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            secondary: true,
+            circle: iconOnly,
+            title: '花名册',
+            onClick: () => goRoster(row.class_id)
+          },
+          {
+            icon: () => h(NIcon, null, { default: () => h(PhListDashes) }),
+            ...(iconOnly ? {} : { default: () => '花名册' })
+          }
+        ),
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            type: 'primary',
+            circle: iconOnly,
+            title: '点名',
+            onClick: () => goRollCall(row.class_id)
+          },
+          {
+            icon: () => h(NIcon, null, { default: () => h(PhMegaphone) }),
+            ...(iconOnly ? {} : { default: () => '点名' })
+          }
+        )
+      ])
   }
-]
+
+  const base = [
+    { title: '班级名称', key: 'class_name', minWidth: iconOnly ? 120 : 200 },
+    {
+      title: '学生人数',
+      key: 'student_count',
+      width: 110,
+      render: (row) => row.student_ids?.length || 0,
+      hideOn: 'compact'
+    },
+    actions
+  ]
+
+  return base.filter((column) => !(column.hideOn === 'compact' && isCompact.value))
+})
 
 onMounted(loadData)
 </script>
@@ -114,7 +146,7 @@ onMounted(loadData)
       <p>课堂点名的总览与快捷入口</p>
     </header>
 
-    <n-grid cols="1 s:2 m:4" responsive="screen" :x-gap="16" :y-gap="16" item-responsive>
+    <n-grid cols="2 s:2 m:4" responsive="screen" :x-gap="16" :y-gap="16" item-responsive>
       <n-gi v-for="card in statCards" :key="card.label">
         <stat-card v-bind="card" :loading="loading" />
       </n-gi>
@@ -175,6 +207,7 @@ onMounted(loadData)
         :loading="loading"
         :bordered="false"
         :row-key="(row) => row.class_id"
+        :scroll-x="isCompact ? 320 : 520"
         size="small"
       />
     </n-card>

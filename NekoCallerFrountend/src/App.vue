@@ -1,28 +1,36 @@
 <script setup>
-import { computed, h } from 'vue'
+import { computed, h, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  NButton,
   NConfigProvider,
   NDialogProvider,
+  NDrawer,
+  NDrawerContent,
   NIcon,
   NLayout,
   NLayoutContent,
+  NLayoutHeader,
   NLayoutSider,
   NMenu,
   NMessageProvider,
   dateZhCN,
   zhCN
 } from 'naive-ui'
-import { PhCat } from '@phosphor-icons/vue'
+import { PhList } from '@phosphor-icons/vue'
 import { themeOverrides } from '@/theme'
 import { useBreakpoints } from '@/composables/useBreakpoints'
+import BrandMark from '@/components/BrandMark.vue'
 
 const router = useRouter()
 const route = useRoute()
 const { isNarrow } = useBreakpoints()
 
+const drawerOpen = ref(false)
+
 // 花名册是从班级点进来的，侧栏还该高亮「班级管理」
 const activeKey = computed(() => route.meta.parent || route.path)
+const pageTitle = computed(() => route.meta.title || 'Neko Caller')
 
 const menuOptions = computed(() =>
   router.options.routes
@@ -35,8 +43,14 @@ const menuOptions = computed(() =>
 )
 
 function go(key) {
+  drawerOpen.value = false
   router.push(key)
 }
+
+// 窗口拉宽时把抽屉收掉，不然会留个空抽屉挂在左边
+watch(isNarrow, (narrow) => {
+  if (!narrow) drawerOpen.value = false
+})
 </script>
 
 <template>
@@ -44,39 +58,38 @@ function go(key) {
     <n-message-provider>
       <n-dialog-provider>
         <n-layout has-sider class="shell">
-          <n-layout-sider
-            bordered
-            :width="220"
-            :collapsed-width="64"
-            :collapsed="isNarrow"
-            :show-trigger="false"
-            class="sider"
-          >
-            <div class="brand" :class="{ 'is-collapsed': isNarrow }">
-              <n-icon :size="26" color="#1e40af"><PhCat weight="duotone" /></n-icon>
-              <div v-if="!isNarrow" class="brand-text">
-                <h1>Neko Caller</h1>
-                <span>课堂点名系统</span>
-              </div>
-            </div>
+          <!-- 窄屏不再用「折叠侧栏」：Naive 折叠后内容仍按 220px 排版，会溢到正文上 -->
+          <n-layout-sider v-if="!isNarrow" bordered :width="220" :show-trigger="false" class="sider">
+            <brand-mark />
 
-            <n-menu
-              :value="activeKey"
-              :options="menuOptions"
-              :collapsed="isNarrow"
-              :collapsed-width="64"
-              :collapsed-icon-size="20"
-              :root-indent="18"
-              @update:value="go"
-            />
+            <n-menu :value="activeKey" :options="menuOptions" :root-indent="18" @update:value="go" />
           </n-layout-sider>
 
-          <n-layout-content class="content">
-            <div class="content-inner">
-              <router-view />
-            </div>
-          </n-layout-content>
+          <n-layout class="body">
+            <n-layout-header v-if="isNarrow" bordered class="mobile-bar">
+              <n-button quaternary circle @click="drawerOpen = true">
+                <template #icon>
+                  <n-icon :size="20"><PhList /></n-icon>
+                </template>
+              </n-button>
+              <span class="mobile-title">{{ pageTitle }}</span>
+            </n-layout-header>
+
+            <n-layout-content class="content">
+              <div class="content-inner">
+                <router-view />
+              </div>
+            </n-layout-content>
+          </n-layout>
         </n-layout>
+
+        <n-drawer v-model:show="drawerOpen" placement="left" :width="230">
+          <n-drawer-content :native-scrollbar="false" body-content-style="padding:0">
+            <brand-mark compact />
+
+            <n-menu :value="activeKey" :options="menuOptions" :root-indent="18" @update:value="go" />
+          </n-drawer-content>
+        </n-drawer>
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
@@ -93,36 +106,23 @@ function go(key) {
   background: #fff;
 }
 
-.brand {
+.body {
+  background: #f4f6fa;
+}
+
+.mobile-bar {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 64px;
-  padding: 0 18px;
-  border-bottom: 1px solid #eef1f7;
-
-  &.is-collapsed {
-    justify-content: center;
-    padding: 0;
-  }
+  height: 56px;
+  padding: 0 12px;
+  background: #fff;
 }
 
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-
-  h1 {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1f2937;
-  }
-
-  span {
-    font-size: 11px;
-    color: #8b95a7;
-    letter-spacing: 0.6px;
-  }
+.mobile-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .content {
